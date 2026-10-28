@@ -7,18 +7,53 @@ published site as a whole is conveyed under GPL-2.0.
 
 ## Remind
 
-Remind, the reminder program that computes every date Fasti shows, is
-copyright Dianne Skoll and others and is licensed under the GNU General Public
-License, version 2. Fasti runs an unmodified build of it, compiled to
-WebAssembly (`remind.wasm`), as a separate program in its own worker.
+Remind, the reminder program that computes every date Fasti shows, runs in
+the site as `remind.wasm`: an unmodified build of Remind 06.03.06, compiled to
+WebAssembly and run as a separate program in its own worker.
 
-- Corresponding source: the release tarball in `engine/vendor/`, built by
+> REMIND is Copyright (C) 1992-2026 Dianne Skoll, except where noted in
+> individual files.
+>
+> REMIND may be used and distributed according to the terms of the GNU General
+> Public License, Version 2.
+
+(From `COPYRIGHT` in the release tarball, which carries the full licence text.)
+
+- Corresponding source: `engine/vendor/remind-06.03.06.tar.gz`, built by
   `engine/build.sh` with the patches in `engine/patches/` (if any).
-- Its full copyright notice is copied here from the tarball when the tarball
-  is committed (docs/PLAN.md section 12, step 1). Until then the site does not
-  include Remind.
+- Fasti is not affiliated with or endorsed by Remind or its author.
 
-Fasti is not affiliated with or endorsed by Remind or its author.
+Parts of Remind that `remind.wasm` includes under their own terms:
+
+- `src/json.c`, `src/json.h`: Copyright (C) 2012-2021 the json-parser authors.
+  All rights reserved. https://github.com/json-parser/json-parser
+
+  > Redistribution and use in source and binary forms, with or without
+  > modification, are permitted provided that the following conditions are met:
+  >
+  > 1. Redistributions of source code must retain the above copyright notice,
+  >    this list of conditions and the following disclaimer.
+  > 2. Redistributions in binary form must reproduce the above copyright
+  >    notice, this list of conditions and the following disclaimer in the
+  >    documentation and/or other materials provided with the distribution.
+  >
+  > THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS \`\`AS IS'' AND ANY
+  > EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  > WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  > DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY
+  > DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  > (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  > LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  > ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+  > THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+- `src/moon.c` (moonrise and moonset), derived from
+  https://github.com/signetica/MoonRise: Copyright 2007 Stephen R. Schmitt;
+  subsequent work Copyright 2020 Cyrus Rahman. "You may use or modify this
+  source code in any way you find useful, provided that you agree that the
+  author(s) have no warranty, obligations or liability."
+- `src/md5.c`: written by Colin Plumb in 1993; public domain.
 
 ## Code adapted from Mycelium
 

@@ -8,7 +8,7 @@ Reference material that comes with this plan:
 
 | File | What it is |
 | --- | --- |
-| `reference/prototype.html` | A working single-file prototype (named "Kalends" before the rename). Shows the intended views, quick add, inspector, editor and design tokens. Its JS date engine is **not** to be ported (see 3.2). Its tokenizer, explainer, quick-add parser and patcher **are** the starting point for the TypeScript lens. |
+| `reference/prototype.html` | A working single-file prototype of Fasti. Shows the intended views, quick add, inspector, editor and design tokens. Its JS date engine is **not** to be ported (see 3.2). Its tokenizer, explainer, quick-add parser and patcher **are** the starting point for the TypeScript lens. |
 | `reference/manpage-vectors.test.js` | 57 expected results taken from worked examples in the Remind 06.03.06 man page, written against the prototype engine's API. Port them as golden tests for the WebAssembly engine. |
 
 Sibling projects by the same author, used as the source for the stack, sync code and conventions:
