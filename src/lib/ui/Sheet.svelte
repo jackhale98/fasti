@@ -33,12 +33,89 @@
 	function close() {
 		open = false;
 	}
+
+	// The page behind doesn't scroll while a sheet is open.
+	$effect(() => {
+		if (!open) return;
+		const root = document.documentElement;
+		root.classList.add('sheet-open');
+		return () => root.classList.remove('sheet-open');
+	});
+
+	// Phones: pull the sheet down to close it, from its handle, its top (when
+	// scrolled to the top) or the backdrop. Touch events, as only they can stop
+	// the scroll once the pull has begun.
+	let pull = $state<number | null>(null);
+	let leaving = $state(false);
+	$effect(() => {
+		const el = dialog;
+		if (!el) return;
+		let start: { y: number; t: number } | null = null;
+		/** Whether a touch here would scroll something up (so it isn't a pull). */
+		const scrollsUp = (target: EventTarget | null) => {
+			for (let n = target as HTMLElement | null; n && n !== el.parentElement; n = n.parentElement) {
+				if (n.matches('textarea, input, select, [contenteditable], .cm-editor')) return true;
+				if (n.scrollTop > 0) return true;
+			}
+			return false;
+		};
+		const touchstart = (e: TouchEvent) => {
+			start =
+				open && !leaving && e.touches.length === 1 && !matchMedia('(min-width: 960px)').matches
+					? scrollsUp(e.target)
+						? null
+						: { y: e.touches[0]!.clientY, t: e.timeStamp }
+					: null;
+		};
+		const touchmove = (e: TouchEvent) => {
+			if (!start) return;
+			const dy = e.touches[0]!.clientY - start.y;
+			if (pull === null) {
+				if (dy < -6) start = null; // scrolling the sheet's content
+				if (dy < 6 || !start) return;
+			}
+			e.preventDefault();
+			pull = Math.max(0, dy);
+		};
+		const touchend = (e: TouchEvent) => {
+			if (start && pull !== null) {
+				const dy = (e.changedTouches[0]?.clientY ?? start.y) - start.y;
+				const fast = dy / Math.max(1, e.timeStamp - start.t) > 0.5;
+				if (e.type !== 'touchcancel' && (dy > 100 || (fast && dy > 30))) dismiss();
+				else pull = null;
+			}
+			start = null;
+		};
+		el.addEventListener('touchstart', touchstart, { passive: true });
+		el.addEventListener('touchmove', touchmove, { passive: false });
+		el.addEventListener('touchend', touchend);
+		el.addEventListener('touchcancel', touchend);
+		return () => {
+			el.removeEventListener('touchstart', touchstart);
+			el.removeEventListener('touchmove', touchmove);
+			el.removeEventListener('touchend', touchend);
+			el.removeEventListener('touchcancel', touchend);
+		};
+	});
+	/** Slide the sheet the rest of the way down, then close it. */
+	function dismiss() {
+		pull = null;
+		if (matchMedia('(prefers-reduced-motion: reduce)').matches) return close();
+		leaving = true;
+		setTimeout(() => {
+			leaving = false;
+			close();
+		}, 160);
+	}
 </script>
 
 <!-- A backdrop click is a pointer shortcut; Escape and the close button do the same. -->
 <dialog
 	bind:this={dialog}
 	class="sheet"
+	class:pulling={pull !== null}
+	class:leaving
+	style:transform={pull !== null ? `translateY(${pull}px)` : undefined}
 	aria-labelledby="{uid}-title"
 	data-testid={testid}
 	onclose={() => {
@@ -79,6 +156,17 @@
 	}
 	.sheet[open] {
 		animation: up 0.22s ease-out;
+		transition: transform 0.2s ease;
+	}
+	.sheet.pulling {
+		transition: none;
+	}
+	.sheet.leaving {
+		transform: translateY(100%);
+		transition-duration: 0.16s;
+	}
+	:global(html.sheet-open) {
+		overflow: hidden;
 	}
 	.sheet::backdrop {
 		background: color-mix(in srgb, #000 38%, transparent);

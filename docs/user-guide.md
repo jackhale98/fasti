@@ -145,7 +145,8 @@ doesn't start out overdue. If you type a line that starts with `REM` or
 ## The Inspector
 
 Tap or click a reminder anywhere to open it: a panel on the right on desktops,
-a sheet from the bottom on phones. It shows:
+a sheet from the bottom on phones (swipe it down, or tap outside it, to close
+it). It shows:
 
 - the message, with Remind's substitutions filled in, and chips for the time,
   duration and `INFO` values;
