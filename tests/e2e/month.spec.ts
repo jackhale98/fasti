@@ -342,3 +342,46 @@ test.describe('phones', () => {
 		await expect(handleOf(page)).toHaveAttribute('aria-expanded', 'true');
 	});
 });
+
+test.describe('desktop: the whole month fits without scrolling', () => {
+	// eslint-disable-next-line no-empty-pattern
+	test.beforeEach(({}, info) => {
+		test.skip(!info.project.name.startsWith('desktop'), 'desktop layout only');
+	});
+
+	for (const size of [
+		{ width: 1366, height: 860 },
+		{ width: 1366, height: 768 },
+		{ width: 1280, height: 720 }
+	]) {
+		test(`${size.width}x${size.height}: no vertical scroll, 42 cells visible, list in the panel`, async ({
+			page
+		}) => {
+			await page.setViewportSize(size);
+			await open(page);
+			const m = await page.locator('main').evaluate((el) => ({
+				scroll: el.scrollHeight,
+				client: el.clientHeight
+			}));
+			expect(m.scroll).toBeLessThanOrEqual(m.client);
+			for (const cell of await page.getByTestId('day-cell').all()) {
+				const box = (await cell.boundingBox())!;
+				expect(box.y).toBeGreaterThanOrEqual(0);
+				expect(box.y + box.height).toBeLessThanOrEqual(size.height);
+			}
+			await expect(page.locator('aside.panel').getByTestId('day-heading')).toBeVisible();
+			await expect(page.locator('aside.panel .list')).toBeVisible();
+			// With the inspector hidden the list sits beside the grid, still without scrolling.
+			await page.getByRole('button', { name: 'Hide inspector' }).click();
+			await expect(page.getByRole('complementary', { name: 'Selected day' })).toBeVisible();
+			await expect(page.getByTestId('day-heading')).toBeVisible();
+			const over = await page.locator('main').evaluate((el) => el.scrollHeight - el.clientHeight);
+			expect(over).toBeLessThanOrEqual(0);
+			const results = await new AxeBuilder({ page }).analyze();
+			const bad = results.violations.filter(
+				(v) => v.impact === 'serious' || v.impact === 'critical'
+			);
+			expect(bad.map((v) => v.id)).toEqual([]);
+		});
+	}
+});
