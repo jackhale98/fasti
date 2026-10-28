@@ -1,0 +1,14 @@
+{
+	"remind": "06.03.06",
+	"tarball": "remind-06.03.06.tar.gz",
+	"tarballSha256": "19518dfa6ab3695749e74b26b664a7134b573ddd03f0a7a6fee3867868d6fd58",
+	"emsdk": "6.0.13",
+	"emsdkImage": "emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a",
+	"compileFlags": "-O2",
+	"linkFlags": "-O2 -sMODULARIZE -sEXPORT_ES6 -sEXPORT_NAME=createRemind -sENVIRONMENT=worker,node -sINVOKE_RUN=0 -sEXIT_RUNTIME=1 -sALLOW_MEMORY_GROWTH -sFORCE_FILESYSTEM -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV",
+	"jsLibraries": ["engine/time-zone.js.in"],
+	"jsLibrariesSha256": ["965f08e440cec9c39208b7670a783bc71fdc9b0f8f8c6caf1d65e58509c7dd3b"],
+	"patches": [],
+	"remindWasmSha256": "041a2c9576119bbdcd6ce9507d73569c452578c6c812547cfaaef86e9405a386",
+	"remindMjsSha256": "384adbfaf613b5948a4b23c541ce4b373bd2438467e86b21afcb7b92798f2107"
+}

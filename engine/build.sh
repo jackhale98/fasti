@@ -41,8 +41,10 @@ tarball="${tarballs[0]}"
 version="$(basename "$tarball" .tar.gz)"
 version="${version#remind-}"
 
-# The tarball must match the SHA-256 the human recorded in SOURCE.md.
-expected="$(grep -oiE 'sha-?256[^0-9a-f]*[0-9a-f]{64}' engine/vendor/SOURCE.md | grep -oiE '[0-9a-f]{64}' | head -1 || true)"
+# The tarball must match the SHA-256 the human recorded in SOURCE.md: the first
+# 64-hex string on a line starting "SHA-256" or "- SHA-256" (any case, any
+# words in between, e.g. "- SHA-256 (verified): <hex>").
+expected="$(grep -iE '^[[:space:]]*(-[[:space:]]*)?sha-?256' engine/vendor/SOURCE.md | grep -oiE '\b[0-9a-f]{64}\b' | head -1 || true)"
 actual="$(sha256sum "$tarball" | cut -d' ' -f1)"
 if [[ -z "$expected" || "${expected,,}" != "$actual" ]]; then
 	echo "engine/build.sh: $tarball has SHA-256 $actual, but engine/vendor/SOURCE.md records '${expected:-nothing}'." >&2
@@ -52,6 +54,10 @@ fi
 work="engine/.build"
 rm -rf "$work"
 mkdir -p "$work" static/engine
+# Configure runs its test programs with node. They are extensionless, so node
+# would take the repo's package.json ("type": "module") and load them as ES
+# modules, which fails; mark the scratch tree as CommonJS.
+echo '{ "type": "commonjs" }' > "$work/package.json"
 tar -xzf "$tarball" -C "$work"
 src="$(find "$work" -mindepth 1 -maxdepth 1 -type d | head -1)"
 
@@ -61,9 +67,11 @@ for patch in engine/patches/*.patch; do
 	patches+=("$(basename "$patch")")
 done
 
-# Link flags (docs/PLAN.md section 3.2). No pthreads: GitHub Pages can't send
-# the COOP/COEP headers shared memory needs. `node` is in ENVIRONMENT only so
-# the golden tests can run the same module under Vitest.
+# Compile and link flags (docs/PLAN.md section 3.2, docs/engine.md). No
+# pthreads: GitHub Pages can't send the COOP/COEP headers shared memory needs.
+# `node` is in ENVIRONMENT only so the golden tests can run the same module
+# under Vitest. ENV is exported so a run can set TZ, LANG and so on.
+COMPILE_FLAGS="-O2"
 LINK_FLAGS=(
 	-O2
 	-sMODULARIZE
@@ -74,22 +82,34 @@ LINK_FLAGS=(
 	-sEXIT_RUNTIME=1
 	-sALLOW_MEMORY_GROWTH
 	-sFORCE_FILESYSTEM
-	-sEXPORTED_RUNTIME_METHODS=callMain,FS
+	-sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV
 )
+# Emscripten library overrides, used instead of patches to Remind's C. Listed
+# by repo path (as recorded in BUILD-INFO.json); linked by absolute path.
+JS_LIBRARIES=(engine/time-zone.js.in)
+js_library_flags=()
+for lib in "${JS_LIBRARIES[@]}"; do
+	js_library_flags+=("--js-library=$root/$lib")
+done
 
 (
 	cd "$src"
-	# Configure's test programs are linked plainly; the module flags are given
-	# to the final link only, where they shape src/remind (JS) and remind.wasm.
-	emconfigure ./configure
-	emmake make -C src remind LDFLAGS="${LINK_FLAGS[*]}"
+	# CFLAGS replaces autoconf's default "-g -O2": DWARF made the wasm 4x bigger
+	# and limit wasm-opt. Configure adds Remind's own warnings and -flto=auto.
+	emconfigure ./configure CFLAGS="$COMPILE_FLAGS"
+	# Configure's test programs are linked plainly; the module flags go to the
+	# final link only, where they shape src/remind (JS) and remind.wasm.
+	# src/Makefile bakes @LDFLAGS@ in at configure time, so LDFLAGS on the make
+	# command line is ignored; LDEXTRA is its hook on the remind link line.
+	emmake make -C src remind LDEXTRA="${LINK_FLAGS[*]} ${js_library_flags[*]}"
 )
 
 cp "$src/src/remind" static/engine/remind.mjs
 cp "$src/src/remind.wasm" static/engine/remind.wasm
 
 emcc_version="$(emcc --version | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-patch_json="$(printf '%s\n' "${patches[@]+"${patches[@]}"}" | sed '/^$/d; s/.*/"&"/' | paste -sd, -)"
+json_list() { printf '%s\n' "$@" | sed '/^$/d; s/.*/"&"/' | paste -sd, - | sed 's/,/, /g'; }
+sha() { sha256sum "$1" | cut -d' ' -f1; }
 cat > engine/BUILD-INFO.json <<JSON
 {
 	"remind": "$version",
@@ -97,11 +117,17 @@ cat > engine/BUILD-INFO.json <<JSON
 	"tarballSha256": "$actual",
 	"emsdk": "$emcc_version",
 	"emsdkImage": "$EMSDK_IMAGE",
-	"linkFlags": "$(printf '%s ' "${LINK_FLAGS[@]}" | sed 's/ $//')",
-	"patches": [${patch_json}]
+	"compileFlags": "$COMPILE_FLAGS",
+	"linkFlags": "${LINK_FLAGS[*]}",
+	"jsLibraries": [$(json_list "${JS_LIBRARIES[@]}")],
+	"jsLibrariesSha256": [$(json_list "$(for lib in "${JS_LIBRARIES[@]}"; do sha "$lib"; done)")],
+	"patches": [$(json_list "${patches[@]+"${patches[@]}"}")],
+	"remindWasmSha256": "$(sha static/engine/remind.wasm)",
+	"remindMjsSha256": "$(sha static/engine/remind.mjs)"
 }
 JSON
 
-wasm_gz=$(gzip -9c static/engine/remind.wasm | wc -c)
-glue_gz=$(gzip -9c static/engine/remind.mjs | wc -c)
-echo "Built Remind $version: remind.wasm ${wasm_gz} B gzipped, remind.mjs ${glue_gz} B gzipped (budget 400 KB together)."
+# gzip -n: no name or timestamp in the header, so sizes are reproducible too.
+wasm_gz=$(gzip -9cn static/engine/remind.wasm | wc -c)
+glue_gz=$(gzip -9cn static/engine/remind.mjs | wc -c)
+echo "Built Remind $version: remind.wasm ${wasm_gz} B + remind.mjs ${glue_gz} B gzipped = $((wasm_gz + glue_gz)) B (budget 409600 B)."

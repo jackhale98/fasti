@@ -1,0 +1,649 @@
+# Work
+PUSH-OMIT-CONTEXT
+REM Mon AT 17:00 DURATION 0:30 TAG work MSG retro 445
+REM Mon AT 12:00 DURATION 0:30 TAG work MSG plan 402
+REM 2026-12-13 +4 MSG invoice 377 due %b
+REM 10 OMIT Sat Sun AFTER MSG plan 248
+REM 2026-12-23 *28 AT 16:15 \
+    INFO "Location: Room 3" MSG Recurring demo 183 at %<location>
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 64
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end report 773
+REM 2026-10-15 +5 MSG retro 584 due %b
+REM 22 OMIT Sat Sun AFTER MSG review 45
+REM Mon AT 15:45 DURATION 0:30 TAG work MSG sync 784
+REM Wed AT 09:30 DURATION 0:30 TAG work MSG call 348
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th report 609
+REM Thu AT 13:45 DURATION 0:30 TAG work MSG retro 874
+REM Mon AT 15:45 DURATION 0:30 TAG work MSG backup 419
+REM Fourth Tue AT 15:15 MSG Monthly backup 447
+REM Fri SKIP AT 08:45 PRIORITY 6277 MSG plan 584
+REM 16 OMIT Sat Sun SKIP MSG call 733
+REM 2026-09-26 *14 AT 16:15 \
+    INFO "Location: Room 35" MSG Recurring plan 121 at %<location>
+REM Wed SKIP AT 10:30 PRIORITY 593 MSG review 280
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end invoice 302
+REM Mon AT 11:30 DURATION 0:30 TAG work MSG retro 498
+REM Last Tue AT 11:00 MSG Monthly backup 966
+REM 2026-10-26 *14 AT 09:15 \
+    INFO "Location: Room 3" MSG Recurring retro 33 at %<location>
+REM Tue AT 12:45 DURATION 0:30 TAG work MSG plan 583
+
+REM Fri AT 11:15 DURATION 0:30 TAG work MSG retro 153
+REM 2026-12-06 +5 MSG retro 572 due %b
+REM Mon AT 12:30 DURATION 0:30 TAG work MSG backup 360
+REM Tue AT 16:15 DURATION 0:30 TAG work MSG sync 669
+REM 8 OMIT Sat Sun AFTER MSG review 48
+REM Thu AT 15:30 DURATION 0:30 TAG work MSG retro 34
+REM Wed SKIP AT 13:45 PRIORITY 8346 MSG demo 634
+REM Thu AT 09:00 DURATION 0:30 TAG work MSG review 927
+REM 16 OMIT Sat Sun BEFORE MSG plan 803
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end report 637
+REM 2026-11-02 +2 MSG retro 864 due %b
+REM 2026-11-25 *28 AT 13:00 \
+    INFO "Location: Room 23" MSG Recurring sync 978 at %<location>
+REM Thu AT 08:30 DURATION 0:30 TAG work MSG retro 227
+REM Fri AT 14:15 DURATION 0:30 TAG work MSG review 119
+REM Thu SKIP AT 13:15 PRIORITY 5809 MSG call 891
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end backup 982
+REM 17 OMIT Sat Sun BEFORE MSG review 870
+REM 2026-12-24 +2 MSG plan 420 due %b
+REM Fourth Tue AT 15:00 MSG Monthly backup 534
+REM Mon AT 11:45 DURATION 0:30 TAG work MSG plan 985
+REM First Tue AT 09:45 MSG Monthly invoice 355
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th sync 386
+REM Wed AT 15:15 DURATION 0:30 TAG work MSG backup 763
+REM 2026-12-02 *7 AT 13:00 \
+    INFO "Location: Room 23" MSG Recurring plan 672 at %<location>
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end invoice 423
+REM Mon AT 17:15 DURATION 0:30 TAG work MSG invoice 899
+REM 2026-09-23 *28 AT 10:45 \
+    INFO "Location: Room 26" MSG Recurring review 810 at %<location>
+REM Fri AT 16:00 DURATION 0:30 TAG work MSG backup 987
+REM Last Tue AT 16:45 MSG Monthly invoice 503
+REM Tue AT 12:30 DURATION 0:30 TAG work MSG report 220
+REM 2026-11-16 +1 MSG review 104 due %b
+REM Third Tue AT 10:45 MSG Monthly report 211
+REM Third Thu AT 16:45 MSG Monthly demo 59
+REM Tue AT 16:15 DURATION 0:30 TAG work MSG call 323
+REM Fri AT 17:15 DURATION 0:30 TAG work MSG call 322
+REM 2026-09-28 +2 MSG sync 929 due %b
+
+REM 2026-10-01 *7 AT 09:15 \
+    INFO "Location: Room 19" MSG Recurring invoice 243 at %<location>
+REM Mon SKIP AT 13:15 PRIORITY 2140 MSG backup 720
+REM Fourth Wed AT 13:30 MSG Monthly report 277
+REM Thu AT 09:30 DURATION 0:30 TAG work MSG invoice 516
+
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end backup 754
+
+# review notes 372
+REM Thu AT 10:45 DURATION 0:30 TAG work MSG plan 1
+REM 2026-09-10 *28 AT 10:00 \
+    INFO "Location: Room 38" MSG Recurring demo 765 at %<location>
+REM 2026-12-14 *14 AT 11:15 \
+    INFO "Location: Room 6" MSG Recurring call 173 at %<location>
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end plan 738
+REM Fri AT 14:30 DURATION 0:30 TAG work MSG sync 103
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th retro 151
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th backup 122
+
+REM 9 OMIT Sat Sun BEFORE MSG demo 10
+
+REM 2026-12-19 *7 AT 10:45 \
+    INFO "Location: Room 23" MSG Recurring plan 457 at %<location>
+REM First Thu AT 11:45 MSG Monthly retro 175
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end backup 581
+REM 6 OMIT Sat Sun AFTER MSG retro 70
+REM Thu AT 17:00 DURATION 0:30 TAG work MSG report 806
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th call 834
+REM Second Fri AT 13:00 MSG Monthly invoice 724
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end call 475
+REM Last Thu AT 13:30 MSG Monthly backup 540
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end backup 992
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end retro 578
+REM Thu AT 09:30 DURATION 0:30 TAG work MSG report 2
+REM 2026-11-14 *14 AT 14:15 \
+    INFO "Location: Room 18" MSG Recurring report 787 at %<location>
+REM Thu AT 09:15 DURATION 0:30 TAG work MSG backup 245
+REM 24 OMIT Sat Sun AFTER MSG call 746
+
+# report notes 286
+REM Wed AT 11:30 DURATION 0:30 TAG work MSG retro 563
+REM Wed AT 15:00 DURATION 0:30 TAG work MSG call 328
+REM 5 OMIT Sat Sun SKIP MSG review 961
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end call 688
+REM 2026-11-10 *28 AT 15:00 \
+    INFO "Location: Room 21" MSG Recurring demo 433 at %<location>
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end review 124
+REM 27 OMIT Sat Sun SKIP MSG sync 23
+REM Last Wed AT 08:00 MSG Monthly demo 751
+REM 2026-11-20 +3 MSG invoice 656 due %b
+REM Third Wed AT 13:15 MSG Monthly sync 962
+# sync notes 881
+# invoice notes 985
+REM 21 OMIT Sat Sun AFTER MSG report 907
+REM Wed AT 10:00 DURATION 0:30 TAG work MSG sync 200
+REM Tue AT 09:15 DURATION 0:30 TAG work MSG call 776
+REM Fri AT 14:30 DURATION 0:30 TAG work MSG review 207
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 93
+# retro notes 288
+REM Fri SKIP AT 10:30 PRIORITY 2226 MSG report 569
+REM First Thu AT 12:15 MSG Monthly report 276
+REM 2026-12-16 *28 AT 14:00 \
+    INFO "Location: Room 37" MSG Recurring review 20 at %<location>
+REM 2026-12-07 *28 AT 16:15 \
+    INFO "Location: Room 13" MSG Recurring review 428 at %<location>
+REM Second Mon AT 10:30 MSG Monthly invoice 618
+REM Wed AT 09:00 DURATION 0:30 TAG work MSG call 139
+REM 2026-09-20 *28 AT 10:00 \
+    INFO "Location: Room 9" MSG Recurring demo 390 at %<location>
+REM 23 OMIT Sat Sun SKIP MSG report 893
+REM 2026-11-07 +5 MSG call 749 due %b
+REM 2026-09-27 +4 MSG sync 167 due %b
+REM Wed SKIP AT 15:15 PRIORITY 8590 MSG invoice 671
+REM 28 OMIT Sat Sun AFTER MSG invoice 153
+REM 2026-11-21 +1 MSG invoice 537 due %b
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th report 776
+REM Third Wed AT 16:45 MSG Monthly report 253
+REM Thu SKIP AT 14:15 PRIORITY 3845 MSG review 462
+REM First Wed AT 10:45 MSG Monthly sync 266
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end demo 391
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end plan 980
+REM 16 OMIT Sat Sun BEFORE MSG sync 513
+REM Last Mon AT 17:45 MSG Monthly review 929
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th plan 790
+REM Thu AT 13:00 DURATION 0:30 TAG work MSG review 402
+REM First Tue AT 11:15 MSG Monthly demo 742
+REM First Mon AT 11:45 MSG Monthly retro 26
+REM 2 OMIT Sat Sun AFTER MSG review 670
+# invoice notes 766
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end demo 21
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th call 804
+REM 8 OMIT Sat Sun BEFORE MSG call 750
+REM Tue AT 16:15 DURATION 0:30 TAG work MSG report 70
+REM 15 OMIT Sat Sun AFTER MSG invoice 923
+REM 2026-10-27 *14 AT 13:00 \
+    INFO "Location: Room 5" MSG Recurring review 662 at %<location>
+REM Fri SKIP AT 13:30 PRIORITY 9482 MSG demo 779
+REM Fri AT 15:00 DURATION 0:30 TAG work MSG demo 235
+REM Mon AT 08:45 DURATION 0:30 TAG work MSG call 350
+REM Third Fri AT 16:30 MSG Monthly review 405
+REM 2026-09-20 *7 AT 12:30 \
+    INFO "Location: Room 16" MSG Recurring invoice 583 at %<location>
+REM Third Thu AT 12:15 MSG Monthly demo 562
+REM 2026-12-26 +4 MSG call 62 due %b
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end demo 869
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end invoice 756
+REM Second Fri AT 14:00 MSG Monthly demo 361
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end retro 765
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th backup 99
+REM 13 OMIT Sat Sun BEFORE MSG report 715
+REM 2026-11-20 +5 MSG review 469 due %b
+REM 2026-10-02 +4 MSG report 6 due %b
+REM Last Fri AT 15:45 MSG Monthly retro 179
+REM 9 OMIT Sat Sun SKIP MSG sync 145
+REM Mon AT 15:30 DURATION 0:30 TAG work MSG backup 226
+
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 748
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th report 115
+REM Tue AT 16:15 DURATION 0:30 TAG work MSG report 440
+REM 2026-10-13 *7 AT 16:15 \
+    INFO "Location: Room 14" MSG Recurring call 228 at %<location>
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th review 513
+REM Tue SKIP AT 10:15 PRIORITY 9886 MSG call 453
+REM 2026-09-22 +3 MSG invoice 272 due %b
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th backup 896
+REM Thu AT 12:45 DURATION 0:30 TAG work MSG retro 542
+REM Thu AT 08:00 DURATION 0:30 TAG work MSG plan 63
+REM 2026-12-11 *14 AT 15:30 \
+    INFO "Location: Room 4" MSG Recurring call 136 at %<location>
+REM 2026-10-18 *14 AT 15:45 \
+    INFO "Location: Room 28" MSG Recurring demo 289 at %<location>
+REM Fri AT 16:30 DURATION 0:30 TAG work MSG retro 737
+REM 2026-09-11 *7 AT 08:30 \
+    INFO "Location: Room 30" MSG Recurring backup 222 at %<location>
+# sync notes 659
+REM Mon AT 14:15 DURATION 0:30 TAG work MSG report 925
+REM 2026-10-11 +5 MSG call 82 due %b
+REM Mon AT 09:30 DURATION 0:30 TAG work MSG demo 130
+REM Thu AT 08:30 DURATION 0:30 TAG work MSG report 35
+REM Mon AT 16:00 DURATION 0:30 TAG work MSG retro 789
+REM Third Mon AT 11:15 MSG Monthly backup 630
+REM Thu SKIP AT 12:45 PRIORITY 7358 MSG backup 927
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end sync 740
+REM Tue AT 10:00 DURATION 0:30 TAG work MSG retro 505
+REM Fri AT 17:30 DURATION 0:30 TAG work MSG report 869
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end report 862
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th call 398
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th report 74
+REM Thu SKIP AT 16:15 PRIORITY 8571 MSG backup 697
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end invoice 282
+REM 2026-12-28 +3 MSG backup 723 due %b
+REM 16 OMIT Sat Sun AFTER MSG report 38
+REM 2026-09-12 +5 MSG review 964 due %b
+REM Fourth Wed AT 08:30 MSG Monthly retro 147
+REM Tue AT 10:30 DURATION 0:30 TAG work MSG sync 848
+REM 16 OMIT Sat Sun SKIP MSG report 368
+REM Mon SKIP AT 09:45 PRIORITY 6268 MSG review 440
+REM 2026-10-19 *7 AT 17:45 \
+    INFO "Location: Room 8" MSG Recurring demo 323 at %<location>
+REM 2026-12-01 *14 AT 16:15 \
+    INFO "Location: Room 20" MSG Recurring sync 688 at %<location>
+REM Second Thu AT 17:45 MSG Monthly call 549
+REM 25 OMIT Sat Sun SKIP MSG call 161
+REM 23 OMIT Sat Sun AFTER MSG report 184
+# backup notes 224
+REM 2026-12-22 *7 AT 11:00 \
+    INFO "Location: Room 1" MSG Recurring call 311 at %<location>
+REM Mon AT 13:45 DURATION 0:30 TAG work MSG call 904
+# review notes 877
+REM Tue AT 13:30 DURATION 0:30 TAG work MSG review 609
+REM Mon AT 16:00 DURATION 0:30 TAG work MSG review 734
+REM 24 OMIT Sat Sun AFTER MSG retro 582
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end report 569
+REM Fri AT 17:15 DURATION 0:30 TAG work MSG report 132
+REM Fri SKIP AT 17:15 PRIORITY 4442 MSG demo 6
+REM Wed SKIP AT 10:00 PRIORITY 5962 MSG retro 938
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end demo 990
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end review 18
+# retro notes 765
+REM 2026-10-27 +2 MSG retro 262 due %b
+REM 2026-11-18 +5 MSG sync 415 due %b
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th call 382
+REM Fourth Fri AT 08:30 MSG Monthly backup 577
+# demo notes 956
+REM 5 OMIT Sat Sun BEFORE MSG review 302
+REM Mon AT 11:00 DURATION 0:30 TAG work MSG call 232
+REM Fourth Mon AT 12:00 MSG Monthly demo 118
+REM Last Thu AT 10:00 MSG Monthly call 718
+REM Mon AT 11:30 DURATION 0:30 TAG work MSG backup 469
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end call 710
+REM Thu AT 08:00 DURATION 0:30 TAG work MSG retro 686
+REM Fri SKIP AT 16:45 PRIORITY 29 MSG retro 875
+REM 22 OMIT Sat Sun AFTER MSG review 810
+# call notes 14
+REM Thu AT 14:00 DURATION 0:30 TAG work MSG demo 582
+REM Fourth Wed AT 12:00 MSG Monthly call 275
+REM Fourth Fri AT 17:45 MSG Monthly sync 777
+REM 1 OMIT Sat Sun AFTER MSG plan 187
+REM 13 OMIT Sat Sun SKIP MSG sync 212
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th review 92
+REM Thu AT 12:15 DURATION 0:30 TAG work MSG invoice 774
+REM Mon AT 09:45 DURATION 0:30 TAG work MSG plan 128
+REM First Thu AT 08:15 MSG Monthly report 295
+REM Second Mon AT 10:15 MSG Monthly review 358
+REM Thu AT 09:45 DURATION 0:30 TAG work MSG call 139
+REM Mon AT 13:15 DURATION 0:30 TAG work MSG invoice 727
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th sync 504
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th sync 57
+REM 2026-10-26 *14 AT 16:30 \
+    INFO "Location: Room 12" MSG Recurring backup 857 at %<location>
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end sync 754
+REM Tue SKIP AT 08:30 PRIORITY 3596 MSG plan 218
+
+REM Thu AT 09:15 DURATION 0:30 TAG work MSG plan 443
+
+REM 21 OMIT Sat Sun SKIP MSG sync 710
+
+REM 2026-09-03 *28 AT 09:00 \
+    INFO "Location: Room 8" MSG Recurring review 553 at %<location>
+REM Wed AT 13:15 DURATION 0:30 TAG work MSG sync 161
+REM Fri AT 16:45 DURATION 0:30 TAG work MSG plan 39
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th sync 682
+REM Fri SKIP AT 13:45 PRIORITY 6417 MSG invoice 752
+REM 2026-10-07 *14 AT 15:45 \
+    INFO "Location: Room 30" MSG Recurring retro 261 at %<location>
+REM Fourth Fri AT 16:45 MSG Monthly plan 153
+REM Mon SKIP AT 15:30 PRIORITY 4372 MSG call 511
+REM Fri AT 10:30 DURATION 0:30 TAG work MSG invoice 96
+REM Fri SKIP AT 09:00 PRIORITY 54 MSG retro 35
+REM 12 OMIT Sat Sun SKIP MSG call 842
+
+REM Thu AT 13:45 DURATION 0:30 TAG work MSG call 173
+REM Second Thu AT 10:45 MSG Monthly call 455
+REM Thu AT 08:00 DURATION 0:30 TAG work MSG retro 257
+REM Fri AT 11:30 DURATION 0:30 TAG work MSG invoice 946
+REM 2026-11-05 +3 MSG retro 150 due %b
+REM 2026-10-06 +4 MSG retro 879 due %b
+REM Last Tue AT 16:30 MSG Monthly invoice 640
+REM Mon SKIP AT 11:00 PRIORITY 8330 MSG retro 792
+REM First Thu AT 16:15 MSG Monthly invoice 85
+# review notes 611
+REM Third Fri AT 14:00 MSG Monthly call 709
+REM Fri AT 09:45 DURATION 0:30 TAG work MSG backup 472
+REM 2026-11-13 *7 AT 14:30 \
+    INFO "Location: Room 3" MSG Recurring invoice 571 at %<location>
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th call 163
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end sync 764
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end report 616
+REM 2026-12-06 +1 MSG backup 170 due %b
+REM Thu SKIP AT 09:30 PRIORITY 7917 MSG review 476
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end invoice 798
+REM 2026-12-09 *7 AT 14:30 \
+    INFO "Location: Room 7" MSG Recurring report 551 at %<location>
+
+REM 6 OMIT Sat Sun AFTER MSG report 18
+REM 2026-09-23 *14 AT 17:15 \
+    INFO "Location: Room 21" MSG Recurring plan 645 at %<location>
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th backup 137
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th retro 228
+REM 19 OMIT Sat Sun BEFORE MSG sync 860
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th retro 573
+REM Mon AT 10:30 DURATION 0:30 TAG work MSG retro 995
+REM 11 OMIT Sat Sun SKIP MSG sync 372
+REM 19 OMIT Sat Sun AFTER MSG call 130
+REM Thu AT 16:30 DURATION 0:30 TAG work MSG call 833
+REM Third Fri AT 10:00 MSG Monthly report 559
+REM Thu AT 12:45 DURATION 0:30 TAG work MSG review 530
+REM Second Tue AT 12:15 MSG Monthly review 184
+REM Thu AT 16:45 DURATION 0:30 TAG work MSG demo 324
+REM 2026-12-14 +4 MSG call 539 due %b
+REM 19 OMIT Sat Sun AFTER MSG demo 602
+REM 2026-09-01 +2 MSG call 829 due %b
+# retro notes 18
+REM Third Fri AT 13:30 MSG Monthly demo 295
+REM 9 OMIT Sat Sun AFTER MSG sync 388
+REM Fourth Thu AT 16:30 MSG Monthly report 975
+REM 2026-10-24 +5 MSG sync 933 due %b
+REM 2026-11-27 +1 MSG plan 137 due %b
+
+REM Second Mon AT 12:45 MSG Monthly demo 806
+REM Wed SKIP AT 09:15 PRIORITY 6158 MSG sync 229
+REM Wed AT 12:45 DURATION 0:30 TAG work MSG retro 692
+REM Tue AT 17:00 DURATION 0:30 TAG work MSG invoice 156
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th demo 510
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end invoice 179
+REM 20 OMIT Sat Sun AFTER MSG plan 481
+REM Thu SKIP AT 12:00 PRIORITY 2600 MSG demo 938
+REM Fri SKIP AT 11:00 PRIORITY 806 MSG sync 650
+REM First Thu AT 17:15 MSG Monthly backup 487
+REM Wed AT 13:45 DURATION 0:30 TAG work MSG sync 503
+REM Fourth Mon AT 12:15 MSG Monthly report 632
+REM 2026-11-08 *28 AT 17:00 \
+    INFO "Location: Room 30" MSG Recurring retro 276 at %<location>
+REM Last Wed AT 12:30 MSG Monthly call 282
+REM Tue AT 10:15 DURATION 0:30 TAG work MSG report 753
+REM Tue AT 13:30 DURATION 0:30 TAG work MSG backup 544
+REM Mon SKIP AT 15:45 PRIORITY 4648 MSG sync 15
+REM Last Fri AT 08:30 MSG Monthly report 230
+REM Thu AT 16:00 DURATION 0:30 TAG work MSG report 652
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end plan 346
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th call 992
+REM Fri AT 08:00 DURATION 0:30 TAG work MSG plan 842
+REM 4 OMIT Sat Sun SKIP MSG demo 191
+REM 6 OMIT Sat Sun BEFORE MSG sync 187
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th backup 118
+REM Last Fri AT 15:45 MSG Monthly plan 337
+REM 8 OMIT Sat Sun BEFORE MSG call 879
+REM Last Mon AT 16:45 MSG Monthly call 95
+REM 2026-11-18 +2 MSG report 119 due %b
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end report 766
+REM 20 OMIT Sat Sun BEFORE MSG plan 12
+REM 2 OMIT Sat Sun AFTER MSG report 692
+
+REM 15 OMIT Sat Sun BEFORE MSG demo 405
+REM Thu AT 14:45 DURATION 0:30 TAG work MSG call 471
+REM 23 OMIT Sat Sun BEFORE MSG plan 396
+REM 10 OMIT Sat Sun SKIP MSG call 770
+REM Mon SKIP AT 08:45 PRIORITY 5382 MSG call 836
+REM 2026-12-12 *7 AT 08:30 \
+    INFO "Location: Room 15" MSG Recurring backup 79 at %<location>
+REM 2026-09-07 +2 MSG backup 435 due %b
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end call 630
+REM 2026-12-11 *28 AT 13:15 \
+    INFO "Location: Room 15" MSG Recurring review 521 at %<location>
+REM 19 OMIT Sat Sun SKIP MSG sync 785
+# plan notes 478
+REM First Wed AT 11:45 MSG Monthly backup 801
+REM Thu SKIP AT 13:00 PRIORITY 6815 MSG sync 576
+REM 16 OMIT Sat Sun SKIP MSG invoice 327
+REM Fri SKIP AT 15:30 PRIORITY 4036 MSG sync 175
+
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end retro 469
+REM Thu AT 10:15 DURATION 0:30 TAG work MSG call 819
+# sync notes 73
+REM Wed AT 15:45 DURATION 0:30 TAG work MSG plan 255
+REM 2026-10-01 +1 MSG demo 724 due %b
+REM 2026-10-20 *14 AT 16:00 \
+    INFO "Location: Room 26" MSG Recurring sync 570 at %<location>
+REM Last Tue AT 09:30 MSG Monthly retro 430
+REM Last Mon AT 12:00 MSG Monthly report 656
+REM 2026-12-21 *14 AT 10:45 \
+    INFO "Location: Room 15" MSG Recurring retro 543 at %<location>
+REM Tue SKIP AT 11:00 PRIORITY 5022 MSG sync 724
+REM 14 OMIT Sat Sun SKIP MSG call 869
+REM Third Fri AT 16:00 MSG Monthly invoice 211
+REM 2026-09-14 +2 MSG sync 421 due %b
+# sync notes 518
+REM Wed AT 11:45 DURATION 0:30 TAG work MSG call 923
+REM 2026-12-19 +3 MSG demo 220 due %b
+REM 2026-11-21 *7 AT 12:00 \
+    INFO "Location: Room 3" MSG Recurring backup 327 at %<location>
+REM Second Tue AT 14:00 MSG Monthly demo 807
+REM Last Wed AT 13:15 MSG Monthly demo 175
+REM Wed AT 13:45 DURATION 0:30 TAG work MSG report 32
+REM 27 OMIT Sat Sun AFTER MSG call 819
+REM 2026-11-01 *28 AT 16:15 \
+    INFO "Location: Room 13" MSG Recurring sync 19 at %<location>
+REM Second Fri AT 14:45 MSG Monthly sync 494
+REM Tue AT 17:30 DURATION 0:30 TAG work MSG demo 872
+REM 2026-12-23 *7 AT 17:15 \
+    INFO "Location: Room 24" MSG Recurring call 5 at %<location>
+REM Wed SKIP AT 15:00 PRIORITY 5416 MSG sync 869
+REM 2026-10-04 *7 AT 08:00 \
+    INFO "Location: Room 4" MSG Recurring invoice 153 at %<location>
+REM 6 OMIT Sat Sun BEFORE MSG sync 259
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end plan 590
+REM Mon AT 17:00 DURATION 0:30 TAG work MSG sync 556
+REM Tue AT 10:00 DURATION 0:30 TAG work MSG retro 10
+REM Last Mon AT 13:45 MSG Monthly backup 323
+REM 2026-10-19 +5 MSG plan 17 due %b
+REM 10 OMIT Sat Sun SKIP MSG retro 141
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end sync 355
+REM Fri AT 17:30 DURATION 0:30 TAG work MSG demo 707
+REM Mon SKIP AT 14:45 PRIORITY 8955 MSG review 693
+# sync notes 500
+REM Mon SKIP AT 17:15 PRIORITY 8758 MSG call 302
+REM 2026-11-25 *28 AT 10:15 \
+    INFO "Location: Room 19" MSG Recurring demo 752 at %<location>
+REM Thu AT 17:45 DURATION 0:30 TAG work MSG backup 539
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th plan 387
+REM 17 OMIT Sat Sun BEFORE MSG review 408
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end retro 802
+REM 10 OMIT Sat Sun AFTER MSG sync 731
+REM 6 OMIT Sat Sun BEFORE MSG retro 344
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end invoice 748
+REM Thu AT 09:30 DURATION 0:30 TAG work MSG invoice 175
+REM 13 OMIT Sat Sun AFTER MSG report 660
+REM Second Wed AT 15:45 MSG Monthly backup 697
+REM 2026-09-14 +1 MSG backup 477 due %b
+REM Mon AT 10:30 DURATION 0:30 TAG work MSG retro 258
+REM Fourth Fri AT 17:15 MSG Monthly plan 875
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th retro 272
+REM Tue AT 09:15 DURATION 0:30 TAG work MSG plan 349
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end report 618
+REM Fri AT 11:45 DURATION 0:30 TAG work MSG invoice 811
+REM 19 OMIT Sat Sun SKIP MSG invoice 815
+REM 20 OMIT Sat Sun BEFORE MSG sync 423
+REM Wed AT 10:00 DURATION 0:30 TAG work MSG plan 620
+REM Wed AT 08:15 DURATION 0:30 TAG work MSG demo 155
+REM Tue SKIP AT 12:15 PRIORITY 5145 MSG invoice 295
+# sync notes 327
+REM 2026-12-12 *28 AT 10:00 \
+    INFO "Location: Room 28" MSG Recurring demo 295 at %<location>
+REM Wed SKIP AT 10:15 PRIORITY 3057 MSG report 868
+
+REM Fri AT 14:15 DURATION 0:30 TAG work MSG retro 969
+# invoice notes 140
+REM Fourth Wed AT 12:00 MSG Monthly backup 945
+REM 12 OMIT Sat Sun BEFORE MSG review 383
+REM Tue AT 17:30 DURATION 0:30 TAG work MSG report 813
+
+REM 2026-09-17 +3 MSG backup 55 due %b
+REM Tue AT 17:00 DURATION 0:30 TAG work MSG sync 582
+REM Wed AT 12:00 DURATION 0:30 TAG work MSG invoice 803
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th plan 751
+REM Tue AT 16:00 DURATION 0:30 TAG work MSG retro 521
+REM Tue AT 17:30 DURATION 0:30 TAG work MSG retro 333
+REM 1 OMIT Sat Sun AFTER MSG plan 987
+REM Fourth Fri AT 08:30 MSG Monthly invoice 294
+REM 2026-11-06 *7 AT 14:45 \
+    INFO "Location: Room 25" MSG Recurring backup 299 at %<location>
+REM 28 OMIT Sat Sun AFTER MSG call 49
+REM 4 OMIT Sat Sun SKIP MSG invoice 470
+
+# review notes 384
+REM Mon AT 11:30 DURATION 0:30 TAG work MSG backup 874
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th demo 995
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end sync 46
+REM Last Mon AT 13:00 MSG Monthly retro 192
+REM 2026-11-11 *7 AT 16:15 \
+    INFO "Location: Room 21" MSG Recurring report 327 at %<location>
+REM 2026-11-23 *14 AT 09:15 \
+    INFO "Location: Room 30" MSG Recurring sync 508 at %<location>
+REM 2026-11-25 +1 MSG sync 460 due %b
+REM 2026-09-24 *7 AT 09:15 \
+    INFO "Location: Room 13" MSG Recurring retro 394 at %<location>
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 820
+REM Third Mon AT 12:15 MSG Monthly backup 303
+REM Tue AT 08:15 DURATION 0:30 TAG work MSG backup 998
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th plan 471
+REM 2026-09-20 +1 MSG backup 937 due %b
+REM Fri AT 08:00 DURATION 0:30 TAG work MSG call 314
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end review 661
+# report notes 698
+REM 2026-11-06 +1 MSG backup 711 due %b
+REM Fri AT 12:00 DURATION 0:30 TAG work MSG backup 493
+# demo notes 594
+REM Second Fri AT 12:45 MSG Monthly report 611
+REM Fourth Mon AT 09:00 MSG Monthly plan 82
+REM 2026-09-28 +3 MSG demo 118 due %b
+REM 14 OMIT Sat Sun AFTER MSG review 955
+# sync notes 509
+REM 9 OMIT Sat Sun AFTER MSG backup 115
+
+
+REM Fri AT 10:15 DURATION 0:30 TAG work MSG demo 54
+REM 2026-11-13 +2 MSG demo 724 due %b
+REM Third Mon AT 16:45 MSG Monthly review 363
+
+REM Wed AT 12:45 DURATION 0:30 TAG work MSG demo 373
+# report notes 128
+REM Mon AT 11:15 DURATION 0:30 TAG work MSG retro 533
+REM Wed AT 09:45 DURATION 0:30 TAG work MSG sync 327
+# demo notes 893
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end sync 764
+REM Mon AT 15:00 DURATION 0:30 TAG work MSG call 954
+REM 2026-12-28 *28 AT 12:45 \
+    INFO "Location: Room 18" MSG Recurring call 297 at %<location>
+REM Last Thu AT 13:30 MSG Monthly backup 118
+REM Last Mon AT 17:00 MSG Monthly plan 326
+REM 2026-09-10 +3 MSG retro 174 due %b
+
+REM 6 OMIT Sat Sun BEFORE MSG backup 772
+REM Tue AT 17:00 DURATION 0:30 TAG work MSG invoice 60
+REM 2026-10-13 +5 MSG backup 126 due %b
+REM 2026-12-27 *14 AT 15:00 \
+    INFO "Location: Room 21" MSG Recurring retro 864 at %<location>
+REM 2026-09-05 *7 AT 16:15 \
+    INFO "Location: Room 14" MSG Recurring sync 359 at %<location>
+REM 2026-11-19 *14 AT 12:30 \
+    INFO "Location: Room 24" MSG Recurring retro 448 at %<location>
+
+REM Fri SKIP AT 12:00 PRIORITY 6396 MSG retro 599
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 287
+REM Thu AT 14:15 DURATION 0:30 TAG work MSG demo 993
+REM Wed AT 12:45 DURATION 0:30 TAG work MSG sync 83
+REM Tue AT 15:15 DURATION 0:30 TAG work MSG call 962
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 324
+REM Third Tue AT 11:30 MSG Monthly call 691
+REM 22 OMIT Sat Sun AFTER MSG report 486
+REM Mon SKIP AT 11:00 PRIORITY 2365 MSG report 546
+REM Tue AT 14:00 DURATION 0:30 TAG work MSG report 879
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end call 682
+# report notes 762
+REM 8 OMIT Sat Sun BEFORE MSG plan 24
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end report 607
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th backup 355
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 906
+REM Tue AT 10:15 DURATION 0:30 TAG work MSG retro 872
+REM Thu SKIP AT 10:00 PRIORITY 5852 MSG backup 829
+REM Mon SKIP AT 13:15 PRIORITY 2153 MSG retro 578
+REM Fourth Wed AT 17:45 MSG Monthly retro 707
+REM Thu AT 11:45 DURATION 0:30 TAG work MSG review 328
+REM Mon AT 16:30 DURATION 0:30 TAG work MSG plan 854
+REM First Fri AT 08:15 MSG Monthly call 413
+REM Thu AT 17:45 DURATION 0:30 TAG work MSG plan 815
+REM Tue AT 11:45 DURATION 0:30 TAG work MSG invoice 731
+REM Fri AT 12:30 DURATION 0:30 TAG work MSG retro 158
+REM 2026-09-17 *14 AT 12:45 \
+    INFO "Location: Room 1" MSG Recurring demo 543 at %<location>
+REM 2026-09-18 *14 AT 14:45 \
+    INFO "Location: Room 7" MSG Recurring report 952 at %<location>
+REM 2026-09-04 *14 AT 12:45 \
+    INFO "Location: Room 10" MSG Recurring backup 254 at %<location>
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end demo 8
+REM Lastworkday OMIT Sat Sun +3 MSG Month-end review 813
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th demo 135
+REM 2026-12-02 +5 MSG retro 920 due %b
+REM Mon AT 17:15 DURATION 0:30 TAG work MSG demo 170
+REM Thu AT 11:15 DURATION 0:30 TAG work MSG backup 382
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end backup 218
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th backup 952
+# retro notes 698
+REM Thu AT 08:45 DURATION 0:30 TAG work MSG backup 999
+REM Tue AT 10:45 DURATION 0:30 TAG work MSG review 616
+REM Tue AT 09:45 DURATION 0:30 TAG work MSG report 765
+REM 2026-09-18 *7 AT 12:30 \
+    INFO "Location: Room 21" MSG Recurring sync 306 at %<location>
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th report 501
+# plan notes 290
+REM Wed AT 15:15 DURATION 0:30 TAG work MSG invoice 534
+REM 8 OMIT Sat Sun AFTER MSG demo 673
+REM Wed AT 11:45 DURATION 0:30 TAG work MSG backup 58
+REM Lastworkday OMIT Sat Sun +1 MSG Month-end review 697
+REM Third Wed AT 09:30 MSG Monthly demo 192
+REM Thu AT 08:15 DURATION 0:30 TAG work MSG report 786
+REM Wed AT 13:15 DURATION 0:30 TAG work MSG demo 401
+REM Thu AT 14:00 DURATION 0:30 TAG work MSG report 485
+
+REM 2026-11-18 *14 AT 09:00 \
+    INFO "Location: Room 17" MSG Recurring demo 715 at %<location>
+REM 2026-10-22 +4 MSG backup 397 due %b
+REM 2026-10-16 *7 AT 08:30 \
+    INFO "Location: Room 34" MSG Recurring report 599 at %<location>
+REM 2026-09-17 *28 AT 17:15 \
+    INFO "Location: Room 27" MSG Recurring sync 803 at %<location>
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th invoice 936
+REM Wed AT 10:30 DURATION 0:30 TAG work MSG review 948
+REM 2026-09-13 +1 MSG sync 462 due %b
+REM Second Fri AT 09:15 MSG Monthly demo 196
+REM 2026-09-28 *14 AT 10:00 \
+    INFO "Location: Room 29" MSG Recurring invoice 777 at %<location>
+REM Lastworkday OMIT Sat Sun +2 MSG Month-end demo 907
+REM Mon SKIP AT 12:15 PRIORITY 5556 MSG invoice 255
+# demo notes 37
+REM Mon SKIP AT 08:45 PRIORITY 7217 MSG review 774
+REM Thu SKIP AT 15:30 PRIORITY 3930 MSG sync 523
+REM Tue SKIP AT 17:00 PRIORITY 6474 MSG review 280
+REM Mon AT 17:30 DURATION 0:30 TAG work MSG call 278
+REM 28 OMIT Sat Sun AFTER MSG demo 882
+REM 2026-12-10 *28 AT 16:15 \
+    INFO "Location: Room 32" MSG Recurring review 925 at %<location>
+REM 10 OMIT Sat Sun SKIP MSG backup 884
+# call notes 239
+REM 25 OMIT Sat Sun BEFORE MSG sync 851
+REM Tue AT 12:45 DURATION 0:30 TAG work MSG report 762
+REM Tue AT 14:15 DURATION 0:30 TAG work MSG backup 321
+REM Fri AT 13:30 DURATION 0:30 TAG work MSG demo 483
+REM 13 SATISFY [$Tw == 5] MSG Friday 13th review 608
+REM Mon AT 14:45 DURATION 0:30 TAG work MSG backup 696
+REM Last Thu AT 09:45 MSG Monthly review 147
+REM Fourth Thu AT 10:15 MSG Monthly demo 941
+REM 2026-12-08 +3 MSG plan 775 due %b
+REM Fourth Tue AT 12:30 MSG Monthly retro 2
+REM 24 OMIT Sat Sun BEFORE MSG review 883
+REM Second Wed AT 13:15 MSG Monthly invoice 856
+REM Thu AT 11:15 DURATION 0:30 TAG work MSG report 625
+REM 2026-11-22 +2 MSG invoice 503 due %b
+POP-OMIT-CONTEXT
