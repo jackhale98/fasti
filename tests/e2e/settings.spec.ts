@@ -43,6 +43,9 @@ test('Monday start persists and reorders the Month header', async ({ page }) => 
 	await expect(page.getByRole('columnheader').last()).toHaveText(/Sun/);
 	await page.goto('/settings');
 	await page.getByRole('radio', { name: 'Sunday' }).check();
+	// Saving is asynchronous: wait until it has persisted before leaving the page.
+	await page.reload();
+	await expect(page.getByRole('radio', { name: 'Sunday' })).toBeChecked();
 	await page.goto('/month');
 	await expect(page.getByRole('columnheader').first()).toHaveText(/Sun/);
 });

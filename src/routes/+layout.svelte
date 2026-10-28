@@ -131,6 +131,7 @@
 
 	<button
 		type="button"
+		hidden={shell.hideFab}
 		class="fab"
 		aria-label="New reminder"
 		onclick={() => (shell.composing = true)}
@@ -251,6 +252,9 @@
 		padding-bottom: calc(var(--tabbar-h) + 88px + env(safe-area-inset-bottom, 0px));
 	}
 	.panel {
+		display: none;
+	}
+	.fab[hidden] {
 		display: none;
 	}
 	.fab {

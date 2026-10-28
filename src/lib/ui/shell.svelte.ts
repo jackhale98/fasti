@@ -25,6 +25,8 @@ class Shell {
 	panel = $state<Snippet | null>(null);
 	/** Quick add (the FAB, the rail button and the `n` key open it). */
 	composing = $state(false);
+	/** Hides the phone FAB while a view covers the screen (Month's expanded day drawer). */
+	hideFab = $state(false);
 
 	select(selection: Selection | null) {
 		this.selected = selection;

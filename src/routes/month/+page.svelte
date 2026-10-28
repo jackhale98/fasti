@@ -14,6 +14,7 @@
 		type Slot
 	} from '#lib/ui/month/model.ts';
 	import { app } from '#lib/app/app.svelte.ts';
+	import { shell } from '#lib/ui/shell.svelte.ts';
 	import { dayOf, monthName, time, weekday } from '#lib/app/format.ts';
 	import { addMonths, calendar } from '#lib/engine/client.ts';
 	import type { CalendarMonth } from '#lib/engine/types.ts';
@@ -29,6 +30,11 @@
 	let focusDate = $state<string | null>(null);
 	let phone = $state(false);
 	let expanded = $state(false);
+	// The expanded drawer covers the screen; the FAB would float over its list.
+	$effect(() => {
+		shell.hideFab = expanded;
+		return () => (shell.hideFab = false);
+	});
 
 	const mondayFirst = $derived(app.settings.weekStart === 'monday');
 	const hide = $derived(app.settings.hideCompletedTodos);

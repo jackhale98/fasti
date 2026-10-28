@@ -245,7 +245,7 @@ test.describe('phones', () => {
 		await expect(handle).toHaveAttribute('aria-expanded', 'false');
 	});
 
-	test('the expanded list scrolls inside the drawer and clears the FAB', async ({ page }) => {
+	test('the expanded list scrolls inside the drawer, with the FAB hidden', async ({ page }) => {
 		await open(page);
 		await expandIfPhone(page);
 		const list = page.locator('#day-list');
@@ -267,10 +267,8 @@ test.describe('phones', () => {
 		expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(
 			true
 		);
-		// Scrolled to the end, the last row ends above the FAB.
-		const last = (await list.locator('li').last().boundingBox())!;
-		const fab = (await page.getByRole('button', { name: 'New reminder' }).boundingBox())!;
-		expect(last.y + last.height).toBeLessThanOrEqual(fab.y + 1);
+		// The FAB is hidden while the drawer is expanded, so nothing covers the last row.
+		await expect(page.getByRole('button', { name: 'New reminder' })).toBeHidden();
 	});
 
 	test('selecting another day keeps the drawer state and updates it', async ({ page }) => {

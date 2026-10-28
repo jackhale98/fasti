@@ -27,3 +27,17 @@ test('Month selects today when it shows the current month', async ({ page }) => 
 	await expect(today).toHaveCount(1);
 	await expect(today.locator('button').first()).toHaveAccessibleName(/today/);
 });
+
+test('on phones the New button hides while the Month drawer is expanded', async ({ page }) => {
+	test.skip(!test.info().project.name.startsWith('phone'), 'phones only');
+	await page.goto('/month');
+	const fab = page.getByRole('button', { name: 'New reminder' });
+	await expect(fab).toBeVisible();
+	const handle = page.locator('button[aria-expanded]').first();
+	await handle.click();
+	await expect(handle).toHaveAttribute('aria-expanded', 'true');
+	await expect(fab).toBeHidden();
+	await page.keyboard.press('Escape');
+	await expect(handle).toHaveAttribute('aria-expanded', 'false');
+	await expect(fab).toBeVisible();
+});
