@@ -7,7 +7,7 @@
 	--sunk: #e7ece7;
 	--ink: #13221c;
 	--ink-2: #485851;
-	--ink-3: #75847d;
+	--ink-3: #5f6b65; /* darker than the prototype's #75847d, for WCAG AA on paper and sunk */
 	--rule: #d6ded8;
 	--ledger: #1e5b49;
 	--ledger-ink: #ffffff;
@@ -39,7 +39,7 @@
 		--sunk: #1b2621;
 		--ink: #e3ece6;
 		--ink-2: #a7b6ae;
-		--ink-3: #73827a;
+		--ink-3: #809087;
 		--rule: #26342d;
 		--ledger: #6bc29f;
 		--ledger-ink: #08160f;
@@ -66,7 +66,7 @@
 	--sunk: #1b2621;
 	--ink: #e3ece6;
 	--ink-2: #a7b6ae;
-	--ink-3: #73827a;
+	--ink-3: #809087;
 	--rule: #26342d;
 	--ledger: #6bc29f;
 	--ledger-ink: #08160f;
