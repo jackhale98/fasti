@@ -1,33 +1,22 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <script lang="ts">
 	import View from '#lib/ui/View.svelte';
-	import { theme, type ThemeChoice } from '#lib/ui/theme.svelte.ts';
+	import YourFiles from '#lib/ui/settings/YourFiles.svelte';
+	import Display from '#lib/ui/settings/Display.svelte';
 	import Notifications from '#lib/ui/settings/Notifications.svelte';
 	import IcsExport from '#lib/ui/settings/IcsExport.svelte';
-
-	const choices: { value: ThemeChoice; label: string }[] = [
-		{ value: 'system', label: 'Match the system' },
-		{ value: 'light', label: 'Light' },
-		{ value: 'dark', label: 'Dark' }
-	];
 </script>
 
 <View eyebrow="Settings" title="Settings">
-	<fieldset>
-		<legend>Theme</legend>
-		{#each choices as choice (choice.value)}
-			<label>
-				<input
-					type="radio"
-					name="theme"
-					value={choice.value}
-					checked={theme.choice === choice.value}
-					onchange={() => theme.set(choice.value)}
-				/>
-				{choice.label}
-			</label>
-		{/each}
-	</fieldset>
+	<section class="block first" aria-labelledby="files-h">
+		<h2 id="files-h">Your files</h2>
+		<YourFiles />
+	</section>
+
+	<section class="block" aria-labelledby="display-h">
+		<h2 id="display-h">Display</h2>
+		<Display />
+	</section>
 
 	<section class="block" aria-labelledby="notify-h">
 		<h2 id="notify-h">Notifications</h2>
@@ -68,6 +57,9 @@
 	.block {
 		margin-top: 28px;
 	}
+	.first {
+		margin-top: 0;
+	}
 	.block h2 {
 		font-size: 13px;
 		letter-spacing: 0.08em;
@@ -92,28 +84,5 @@
 	.build {
 		font-family: var(--font-mono);
 		font-size: 12px;
-	}
-	fieldset {
-		border: 1px solid var(--rule);
-		border-radius: 12px;
-		padding: 12px 16px 14px;
-		background: var(--surface);
-		display: grid;
-		gap: 8px;
-	}
-	legend {
-		font-weight: 700;
-		padding: 0 6px;
-	}
-	label {
-		display: flex;
-		gap: 10px;
-		align-items: center;
-		min-height: 32px;
-	}
-	input {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--ledger);
 	}
 </style>
