@@ -298,7 +298,10 @@ async function dav(request: Request, env: Env, url: URL, origin: string): Promis
 	const [, , host, ...rest] = url.pathname.split('/');
 	const target = host ? publicHost(host) : null;
 	if (!target) return deny(403, 'WebDAV host not allowed', origin);
-	const allowed = list(env.DAV_HOSTS);
+	const allowed = list(env.DAV_HOSTS).map((h) => h.toLowerCase());
+	// Only the https port, unless the host:port is listed exactly (no port scanning).
+	if (target.includes(':') && !allowed.includes(target))
+		return deny(403, 'WebDAV host not allowed', origin);
 	if (allowed.length && !allowed.includes(target))
 		return deny(403, 'WebDAV host not allowed on this relay', origin);
 	if (!DAV_METHODS.has(request.method)) return deny(405, 'Only WebDAV file requests', origin);

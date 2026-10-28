@@ -275,7 +275,29 @@ describe('WebDAV relay', () => {
 		expect((await worker.fetch(req, pinned)).status).toBe(403);
 	});
 
-	it('holds WebDAV bodies to 20 MB, whether or not they declare a length', async () => {
+	it('relays only to the https port unless host:port is listed in DAV_HOSTS', async () => {
+		const fetch = vi.fn(async () => new Response(null, { status: 204 }));
+		vi.stubGlobal('fetch', fetch);
+		const get = (host: string, e: Env = env) =>
+			worker.fetch(
+				new Request(`https://proxy.example/dav/${host}/x`, {
+					headers: { ...auth, Origin: ORIGIN }
+				}),
+				e
+			);
+		for (const bad of ['example.com:22', 'example.com:0', 'example.com:8443'])
+			expect((await get(bad)).status, bad).toBe(403);
+		expect(fetch).not.toHaveBeenCalled();
+		expect((await get('example.com')).status).toBe(204);
+		expect((await get('example.com:443')).status).toBe(204);
+		expect(fetch).toHaveBeenLastCalledWith('https://example.com/x', expect.anything());
+		const listed = { ...env, DAV_HOSTS: 'nas.example.com:8443' };
+		expect((await get('nas.example.com:8443', listed)).status).toBe(204);
+		expect((await get('nas.example.com:22', listed)).status).toBe(403);
+		expect((await get('nas.example.com', listed)).status).toBe(403);
+	});
+
+	it('holds WebDAV bodies to 20 MB,whether or not they declare a length', async () => {
 		const upstream = vi.fn();
 		vi.stubGlobal('fetch', upstream);
 		const big = 20 * 1024 * 1024 + 1;

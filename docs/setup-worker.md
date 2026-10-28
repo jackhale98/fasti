@@ -105,6 +105,9 @@ messages (the endpoint is a capability to push to that browser); it cannot read
 the messages.
 A browser that exceeds the rate limit gets 429 on `PUT`. The app re-sends the schedule on every open or sync.
 
+A wrong `VAPID_SUBJECT` or key makes Apple answer 403, which deletes the list;
+each device re-uploads on its next open.
+
 ### Git proxy
 
 `GET /<host>/<owner>/<repo>.git/info/refs?service=git-upload-pack|git-receive-pack`,
@@ -127,6 +130,7 @@ unchanged. 501 names the missing secret. Tokens are held for that one request.
 
 `PROPFIND|GET|PUT|DELETE|MKCOL /dav/<host>/<path>` forwards to `https://<host>/<path>`.
 `Authorization` is required (else 401). Refused with 403: IP addresses,
+any port other than 443 unless that exact `host:port` is in `DAV_HOSTS`,
 single-label names, `localhost`, `.local`, `.internal`, `.lan`, `.home.arpa`,
 hosts outside `DAV_HOSTS` when it is set, and `..` in the path. Bodies over 20 MB
 are 413 (counted even when chunked). Redirects are not followed. Forwarded
