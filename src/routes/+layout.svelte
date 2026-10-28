@@ -16,6 +16,7 @@
 	import { app } from '#lib/app/app.svelte.ts';
 	import { shell } from '#lib/ui/shell.svelte.ts';
 	import { theme } from '#lib/ui/theme.svelte.ts';
+	import { pwa } from '#lib/offline/pwa.svelte.ts';
 
 	let { children } = $props();
 
@@ -35,6 +36,7 @@
 	onMount(() => {
 		theme.init();
 		void app.start();
+		pwa.init();
 		const mq = matchMedia(desktopQuery);
 		desktop = mq.matches;
 		const change = () => (desktop = mq.matches);
@@ -100,6 +102,11 @@
 	</nav>
 
 	<main id="main" tabindex="-1">
+		{#if !pwa.online}
+			<p class="offline" role="status">
+				Offline. Everything keeps working; edits stay in this browser.
+			</p>
+		{/if}
 		{@render children()}
 	</main>
 
@@ -145,6 +152,14 @@
 <Toast />
 
 <style>
+	.offline {
+		margin: 0;
+		padding: 8px max(16px, env(safe-area-inset-left, 0px));
+		background: var(--sunk);
+		color: var(--ink-2);
+		font-size: 13px;
+		text-align: center;
+	}
 	.skip {
 		position: absolute;
 		left: 8px;

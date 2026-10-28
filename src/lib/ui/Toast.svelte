@@ -7,8 +7,10 @@
 	{#if toasts.current}
 		<div class="toast">
 			<span>{toasts.current.text}</span>
-			{#if toasts.current.undo}
-				<button type="button" onclick={() => toasts.runUndo()}>Undo</button>
+			{#if toasts.current.action}
+				<button type="button" onclick={() => toasts.runAction()}
+					>{toasts.current.action.label}</button
+				>
 			{/if}
 		</div>
 	{/if}

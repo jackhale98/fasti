@@ -71,6 +71,38 @@ uses keeps its own licence and is checked like any other dependency: in
 particular Mycelium's org parser (uniorg, GPL-3.0-or-later) and Dexie
 (Apache-2.0) are not used in Fasti.
 
+## Code adapted from Tessera
+
+The offline support (`src/lib/offline/caching.ts`, `src/lib/offline/pwa.svelte.ts`,
+`src/service-worker/index.ts`), the Vite and Playwright configuration and
+`scripts/make-icons.mjs` are adapted from Tessera
+(https://github.com/jackhale98/sysml-web), used under the MIT option of its
+"Apache-2.0 OR MIT" licence:
+
+```
+MIT License
+
+Copyright (c) 2026 Jack Hale
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## JavaScript packages in the site
 
 Checked by `npm run licenses` on every CI run, which fails on any licence not
