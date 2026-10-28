@@ -405,12 +405,16 @@ Keep this section current. One line per completed item, newest last.
   - [x] Workflows: `ci.yml`, `engine.yml` (reusable, cached on `engine/**`), `deploy.yml` (only commits that passed CI).
   - [x] `engine/build.sh` in `emscripten/emsdk:6.0.13` pinned by digest (verified to run here); checks the tarball's SHA-256 against `SOURCE.md`. `engine/vendor/README.md` tells the human what to commit.
   - [x] Remind 06.03.06 vendored (owner-supplied; signature still to add). Spike: reproducible build with no C patches, 57/57 vectors, includes and permissions in MEMFS (files 0600), TZ via an `Intl`-based time shim, 184 KB gzipped. Speed missed the 150 ms budget; re-scoped (section 3.2). Details in `docs/engine.md`; man-page digest in `docs/remind-reference.md`.
-- [ ] Phase 1: engine client and lens
+- [x] Phase 1: engine client and lens
   - [x] Lens (`src/lib/lens/`, 198 tests): tokenizer with Remind's own continuation rules (`files.c`), CodeMirror language and completions, explanations, quick add, byte-exact patcher with property tests. Reviewer signed off on `patch.ts` after one round of fixes.
   - Follow-ups for the quick-add UI (Phase 3), all low: flag a refused date instead of silently using today (`dentist 31 Feb`); reject years outside 1990–2075; try later date matches when the first is refused; markDone on a line with two COMPLETE-THROUGH clauses updates only the second (Remind would reject such a line anyway).
-  - [ ] Engine client (`src/lib/engine/`), after the spike.
-- [ ] Phase 2: vault and storage
-- [ ] Phase 3: UI
+  - [x] Engine client (`src/lib/engine/`): worker pool, a fresh Remind instance per run, queue with cancellation, 3 s timeout and respawn, cache per vault hash (memory and IndexedDB), typed agenda and calendar, omitted days from Remind's own `isomitted()`, next dates and live preview for a line.
+- [x] Phase 2: vault and storage
+  - [x] Fresh code on `idb` (nothing copied from Mycelium): schema, vault discovery through DO, INCLUDE and directories, persisted undo/redo, a static sample vault (Remind reads it with no errors), file and folder import, zip export; byte-exact round trips on every fixture. Not yet tried in a real browser by hand: the pickers and the zip download.
+- [x] Phase 3: UI
+  - [x] App shell (lead), shared app state and the selection contract; Today, Month, Script, Quick add and Inspector built in parallel. 200 e2e tests pass at 390×844 and 1366×860 in light and dark with axe; checked by hand in screenshots and under the `/fasti/` base path.
+  - [x] Integration fixes: snapshot posted to the worker raw (DataCloneError), the inspector mounted once, Month loading cells accessible, a dark-mode contrast fix in the editor, the inspector title read as of today, Heads-up order, Month selecting today and arrow keys across months.
+  - First pushed to `main` for the owner to test (owner's go-ahead, 2026-10-28).
   - [x] Today view (`src/routes/+page.svelte`, `src/lib/ui/today/`, `tests/e2e/today.spec.ts`): banner, Overdue, Today, Heads-up, Next two weeks from the calendar.
 - [ ] Phase 4: sync and worker
 - [ ] Phase 5: notifications
