@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// Emscripten JS library (linked with --js-library by engine/build.sh) that
+// makes Remind's TZ keyword work without patching its C.
+//
+// Why: Remind converts between zones by calling setenv("TZ", zone), tzset(),
+// then mktime() and localtime_r() (src/funcs.c tz_convert, src/dorem.c
+// EnterTimezone). Emscripten implements those two with JavaScript's Date
+// (_mktime_js and _localtime_js in src/lib/libtime.js), which only knows the
+// host's zone and ignores TZ, so every TZ clause silently used local time.
+//
+// These overrides read TZ from the C environment on each call and convert
+// with Intl.DateTimeFormat, which carries the browser's own IANA zone data, so
+// no zoneinfo files need to ship. Unset or empty TZ keeps the host's zone
+// (the fast Date path, as before). A leading ':' or '!' is dropped. A name
+// Intl doesn't know is tried as a POSIX "STDoffset" string (DST rules after
+// the offset are ignored); anything else is UTC, as in glibc.
+
+addToLibrary({
+	$fastiZone__deps: ['getenv', '$stringToUTF8OnStack', '$stackSave', '$stackRestore', '$UTF8ToString'],
+	$fastiZone: {
+		formatters: new Map(),
+		// The zone TZ names now: null for the host zone, else a function from
+		// a UTC instant (ms) to that zone's UTC offset (ms, east positive).
+		current() {
+			var sp = stackSave();
+			var ptr = _getenv(stringToUTF8OnStack('TZ'));
+			var tz = ptr ? UTF8ToString(ptr) : '';
+			stackRestore(sp);
+			tz = tz.replace(/^[:!]/, '');
+			if (!tz) return null;
+			var cached = fastiZone.formatters.get(tz);
+			if (cached) return cached;
+			var offsetOf;
+			try {
+				var format = new Intl.DateTimeFormat('en-US', {
+					timeZone: tz,
+					hourCycle: 'h23',
+					era: 'short',
+					year: 'numeric',
+					month: 'numeric',
+					day: 'numeric',
+					hour: 'numeric',
+					minute: 'numeric',
+					second: 'numeric'
+				});
+				offsetOf = (ms) => {
+					var whole = Math.floor(ms / 1000) * 1000;
+					var p = {};
+					for (var part of format.formatToParts(new Date(whole))) p[part.type] = part.value;
+					var year = Number(p.year);
+					if (p.era === 'BC' || p.era === 'B') year = 1 - year;
+					var wall = new Date(0);
+					wall.setUTCFullYear(year, Number(p.month) - 1, Number(p.day));
+					wall.setUTCHours(Number(p.hour), Number(p.minute), Number(p.second), 0);
+					return wall.getTime() - whole;
+				};
+			} catch (e) {
+				// POSIX "STDoffset[DST…]": offset is hours west of UTC.
+				var m = /^[A-Za-z]{3,}([+-]?)(\d{1,2})(?::(\d{2}))?/.exec(tz);
+				var fixed = m ? (m[1] === '-' ? 1 : -1) * (Number(m[2]) * 60 + Number(m[3] || 0)) * 60000 : 0;
+				offsetOf = () => fixed;
+			}
+			fastiZone.formatters.set(tz, offsetOf);
+			return offsetOf;
+		}
+	},
+
+	// Fills *tmPtr with the wall clock of instant `ms` in the zone `offsetOf`
+	// (null: the host's zone). Returns nonzero if `ms` is out of range.
+	$fastiFillTm__deps: ['$fastiZone'],
+	$fastiFillTm: (tmPtr, ms, offsetOf) => {
+		if (isNaN(new Date(ms).getTime())) return 1;
+		var offset, jan, jul;
+		if (!offsetOf) {
+			var date = new Date(ms);
+			offset = -date.getTimezoneOffset() * 60000;
+			jan = -new Date(date.getFullYear(), 0, 1).getTimezoneOffset() * 60000;
+			jul = -new Date(date.getFullYear(), 6, 1).getTimezoneOffset() * 60000;
+		} else {
+			offset = offsetOf(ms);
+			var year = new Date(ms + offset).getUTCFullYear();
+			jan = offsetOf(Date.UTC(year, 0, 1));
+			jul = offsetOf(Date.UTC(year, 6, 1));
+		}
+		// The zone's wall clock, read through the UTC getters.
+		var wall = new Date(ms + offset);
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_sec, 'wall.getUTCSeconds()', 'i32') }}};
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_min, 'wall.getUTCMinutes()', 'i32') }}};
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_hour, 'wall.getUTCHours()', 'i32') }}};
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_mday, 'wall.getUTCDate()', 'i32') }}};
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_mon, 'wall.getUTCMonth()', 'i32') }}};
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_year, 'wall.getUTCFullYear()-1900', 'i32') }}};
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_wday, 'wall.getUTCDay()', 'i32') }}};
+		var yday = Math.floor((wall.getTime() - Date.UTC(wall.getUTCFullYear(), 0, 1)) / 86400000);
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_yday, 'yday', 'i32') }}};
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_gmtoff, 'offset / 1000', LONG_TYPE) }}};
+		// DST is the larger of the January and July offsets (December in the south).
+		var dst = (jan != jul && offset == Math.max(jan, jul)) | 0;
+		{{{ makeSetValue('tmPtr', C_STRUCTS.tm.tm_isdst, 'dst', 'i32') }}};
+		return 0;
+	},
+
+	_localtime_js__i53abi: true,
+	_localtime_js__deps: ['$fastiZone', '$fastiFillTm'],
+	_localtime_js: (time, tmPtr) => fastiFillTm(tmPtr, time * 1000, fastiZone.current()),
+
+	_mktime_js__i53abi: true,
+	_mktime_js__deps: ['$fastiZone', '$fastiFillTm'],
+	_mktime_js: (tmPtr) => {
+		var zone = fastiZone.current();
+		var offsetOf = zone || ((ms) => -new Date(ms).getTimezoneOffset() * 60000);
+		// Wall-clock fields as if UTC; Date normalises out-of-range fields.
+		var wallDate = new Date(0);
+		wallDate.setUTCFullYear(
+			{{{ makeGetValue('tmPtr', C_STRUCTS.tm.tm_year, 'i32') }}} + 1900,
+			{{{ makeGetValue('tmPtr', C_STRUCTS.tm.tm_mon, 'i32') }}},
+			{{{ makeGetValue('tmPtr', C_STRUCTS.tm.tm_mday, 'i32') }}}
+		);
+		wallDate.setUTCHours(
+			{{{ makeGetValue('tmPtr', C_STRUCTS.tm.tm_hour, 'i32') }}},
+			{{{ makeGetValue('tmPtr', C_STRUCTS.tm.tm_min, 'i32') }}},
+			{{{ makeGetValue('tmPtr', C_STRUCTS.tm.tm_sec, 'i32') }}},
+			0
+		);
+		var wall = wallDate.getTime();
+		if (isNaN(wall)) return -1;
+		// The instant whose wall clock is `wall`: refine the offset twice.
+		var t = wall - offsetOf(wall);
+		t = wall - offsetOf(t);
+		// tm_isdst >= 0 picks standard or daylight time when it disagrees
+		// (the repeated hour, or a caller forcing one), as glibc does.
+		var isdst = {{{ makeGetValue('tmPtr', C_STRUCTS.tm.tm_isdst, 'i32') }}};
+		var year = wallDate.getUTCFullYear();
+		var jan = offsetOf(Date.UTC(year, 0, 1));
+		var jul = offsetOf(Date.UTC(year, 6, 1));
+		if (isdst >= 0 && jan != jul) {
+			var dstOffset = Math.max(jan, jul);
+			var isDst = offsetOf(t) == dstOffset;
+			if (isdst > 0 != isDst) t = wall - (isdst > 0 ? dstOffset : Math.min(jan, jul));
+		}
+		var seconds = Math.floor(t / 1000);
+		// Normalise every field (and set tm_wday, tm_yday, tm_isdst) as mktime must.
+		if (fastiFillTm(tmPtr, seconds * 1000, zone)) return -1;
+		return seconds;
+	}
+});

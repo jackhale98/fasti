@@ -1,0 +1,149 @@
+#!/usr/bin/env node
+// SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * Writes tests/fixtures/vaults/large/: a 2,000-line vault (main file plus
+ * three files it pulls in with DO) for the engine performance check in
+ * docs/engine.md. Deterministic: rerunning it reproduces the same bytes.
+ *
+ *   node tests/engine/make-large-vault.mjs
+ */
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'vaults', 'large');
+
+// Small deterministic PRNG (mulberry32).
+let seed = 0x5eed;
+function rand() {
+	seed = (seed + 0x6d2b79f5) | 0;
+	let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+	t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+	return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+/** @template T @param {T[]} list @returns {T} */
+const pick = (list) => /** @type {T} */ (list[Math.floor(rand() * list.length)]);
+/** @param {number} lo @param {number} hi */
+const int = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+/** @param {number} n */
+const pad = (n) => String(n).padStart(2, '0');
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const NAMES = ['Ada', 'Bea', 'Cal', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal', 'Ivy', 'Jo', 'Kit', 'Lou'];
+const THINGS = ['report', 'review', 'call', 'invoice', 'backup', 'plan', 'sync', 'demo', 'retro'];
+const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Last'];
+
+/**
+ * Fills `lines` up to `count` with comments, blank lines and `make()` output.
+ * @param {string[]} header
+ * @param {number} count
+ * @param {() => string[]} make
+ */
+function fill(header, count, make) {
+	const lines = [...header];
+	while (lines.length < count) {
+		const r = rand();
+		if (r < 0.05) lines.push('');
+		else if (r < 0.1) lines.push(`# ${pick(THINGS)} notes ${int(1, 999)}`);
+		else {
+			const item = make();
+			// Never split a continued reminder at the end of a file.
+			lines.push(...(lines.length + item.length <= count ? item : ['# end']));
+		}
+	}
+	return lines;
+}
+
+const holidays = fill(
+	[
+		'# Holidays and OMITs',
+		'OMIT Sat Sun',
+		'OMIT 1 Jan MSG New Year',
+		'OMIT 25 Dec MSG Christmas',
+		'OMIT 26 Dec MSG Boxing Day',
+		'REM Mon 1 Sep SCANFROM -7 ADDOMIT MSG Labour Day',
+		'REM Mon 25 May --7 SCANFROM -7 ADDOMIT MSG Victoria Day',
+		'REM Thu 22 Nov SCANFROM -7 ADDOMIT MSG Thanksgiving'
+	],
+	150,
+	() => {
+		const r = rand();
+		if (r < 0.5) return [`OMIT ${int(1, 28)} ${pick(MONTHS)} MSG Holiday ${int(1, 99)}`];
+		if (r < 0.8) return [`OMIT 2026-${pad(int(1, 12))}-${pad(int(1, 28))}`];
+		return [`REM ${pick(ORDINALS)} ${pick(DAYS)} ${pick(MONTHS)} MSG Observance ${int(1, 99)}`];
+	}
+);
+
+const birthdays = fill(['# Birthdays and anniversaries'], 550, () => [
+	`REM ${int(1, 28)} ${pick(MONTHS)} +${int(1, 14)} MSG %"${pick(NAMES)} ${int(1, 999)}'s birthday%" is %b`
+]);
+
+const work = fill(['# Work', 'PUSH-OMIT-CONTEXT'], 648, () => {
+	const r = rand();
+	const t = `${pad(int(8, 17))}:${pick(['00', '15', '30', '45'])}`;
+	const thing = `${pick(THINGS)} ${int(1, 999)}`;
+	if (r < 0.25)
+		return [`REM ${pick(DAYS.slice(0, 5))} AT ${t} DURATION 0:30 TAG work MSG ${thing}`];
+	if (r < 0.4)
+		return [`REM ${pick(ORDINALS)} ${pick(DAYS.slice(0, 5))} AT ${t} MSG Monthly ${thing}`];
+	if (r < 0.55)
+		return [`REM ${int(1, 28)} OMIT Sat Sun ${pick(['BEFORE', 'AFTER', 'SKIP'])} MSG ${thing}`];
+	if (r < 0.65) return [`REM Lastworkday OMIT Sat Sun +${int(1, 3)} MSG Month-end ${thing}`];
+	if (r < 0.75)
+		return [
+			`REM 2026-${pad(int(9, 12))}-${pad(int(1, 28))} *${pick([7, 14, 28])} AT ${t} \\`,
+			`    INFO "Location: Room ${int(1, 40)}" MSG Recurring ${thing} at %<location>`
+		];
+	if (r < 0.85)
+		return [`REM 2026-${pad(int(9, 12))}-${pad(int(1, 28))} +${int(1, 5)} MSG ${thing} due %b`];
+	if (r < 0.92)
+		return [`REM ${pick(DAYS.slice(0, 5))} SKIP AT ${t} PRIORITY ${int(1, 9999)} MSG ${thing}`];
+	return [`REM 13 SATISFY [$Tw == 5] MSG Friday 13th ${thing}`];
+}).concat(['POP-OMIT-CONTEXT']);
+
+const personal = fill(['# Personal and TODOs'], 640, () => {
+	const r = rand();
+	const thing = `${pick(THINGS)} ${int(1, 999)}`;
+	const date = `2026-${pad(int(6, 12))}-${pad(int(1, 28))}`;
+	if (r < 0.3) return [`REM TODO ${date} ++${int(1, 7)} MSG ${thing} %b`];
+	if (r < 0.45)
+		return [
+			`REM TODO ${pick(DAYS)} +7 COMPLETE-THROUGH 2026-10-${pad(int(1, 28))} MSG ${thing} %a`
+		];
+	if (r < 0.55) return [`REM TODO ${date} ++3 MAX-OVERDUE ${int(1, 14)} MSG ${thing}`];
+	if (r < 0.7) return [`REM ${date} *14 MSG Bins ${thing}`];
+	if (r < 0.85)
+		return [
+			`REM ${pick(DAYS)} FROM 2026-09-01 UNTIL 2027-03-31 AT ${pad(int(6, 21))}:00 MSG ${thing}`
+		];
+	return [`REM ${int(1, 28)} ${pick(MONTHS)} 2027 ++${int(1, 10)} MSG ${thing} %b`];
+});
+
+const main = [
+	'# Fasti performance fixture: 2,000 lines across four files.',
+	'# Generated by tests/engine/make-large-vault.mjs; do not edit by hand.',
+	'SET $AddBlankLines 0',
+	'DO holidays.rem',
+	'DO birthdays.rem',
+	'DO work.rem',
+	'DO personal.rem',
+	'REM MSG Daily check-in',
+	'REM Fri AT 16:00 MSG Weekly review',
+	'',
+	'__EOF__'
+];
+
+const files = {
+	'reminders.rem': main,
+	'holidays.rem': holidays,
+	'birthdays.rem': birthdays,
+	'work.rem': work,
+	'personal.rem': personal
+};
+const total = Object.values(files).reduce((n, lines) => n + lines.length, 0);
+if (total !== 2000) throw new Error(`expected 2000 lines, made ${total}`);
+mkdirSync(out, { recursive: true });
+for (const [name, lines] of Object.entries(files))
+	writeFileSync(join(out, name), lines.join('\n') + '\n');
+console.log(`Wrote ${total} lines to ${out}`);

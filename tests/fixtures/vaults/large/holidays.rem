@@ -1,0 +1,150 @@
+# Holidays and OMITs
+OMIT Sat Sun
+OMIT 1 Jan MSG New Year
+OMIT 25 Dec MSG Christmas
+OMIT 26 Dec MSG Boxing Day
+REM Mon 1 Sep SCANFROM -7 ADDOMIT MSG Labour Day
+REM Mon 25 May --7 SCANFROM -7 ADDOMIT MSG Victoria Day
+REM Thu 22 Nov SCANFROM -7 ADDOMIT MSG Thanksgiving
+OMIT 27 Feb MSG Holiday 38
+OMIT 9 Jul MSG Holiday 37
+OMIT 19 May MSG Holiday 31
+REM Fourth Tue Mar MSG Observance 35
+OMIT 9 Jan MSG Holiday 37
+OMIT 27 Jan MSG Holiday 72
+# sync notes 891
+OMIT 2026-03-24
+OMIT 3 Mar MSG Holiday 58
+OMIT 2026-07-20
+OMIT 5 May MSG Holiday 99
+OMIT 19 Jun MSG Holiday 8
+OMIT 2026-06-11
+OMIT 2026-08-19
+OMIT 11 Sep MSG Holiday 98
+OMIT 2026-12-09
+OMIT 16 Jan MSG Holiday 61
+REM Second Fri Aug MSG Observance 29
+OMIT 2026-12-02
+OMIT 7 Oct MSG Holiday 48
+OMIT 2026-01-06
+OMIT 16 Feb MSG Holiday 69
+# invoice notes 955
+OMIT 9 Mar MSG Holiday 78
+REM Second Sun Jul MSG Observance 31
+OMIT 24 Nov MSG Holiday 5
+OMIT 9 Sep MSG Holiday 87
+OMIT 2026-03-24
+REM Last Fri Apr MSG Observance 62
+OMIT 3 May MSG Holiday 13
+REM Fourth Tue Jul MSG Observance 6
+OMIT 2026-07-01
+OMIT 20 Apr MSG Holiday 70
+
+OMIT 17 Dec MSG Holiday 26
+OMIT 27 Jan MSG Holiday 84
+OMIT 2026-06-11
+OMIT 12 Feb MSG Holiday 85
+OMIT 9 Sep MSG Holiday 23
+OMIT 23 Sep MSG Holiday 2
+OMIT 26 Apr MSG Holiday 90
+OMIT 2026-11-28
+OMIT 16 Apr MSG Holiday 97
+OMIT 11 Dec MSG Holiday 6
+OMIT 2 Apr MSG Holiday 5
+OMIT 23 Oct MSG Holiday 13
+REM Fourth Sat Aug MSG Observance 83
+OMIT 2026-07-20
+OMIT 2026-03-26
+OMIT 3 May MSG Holiday 74
+REM Last Sat May MSG Observance 52
+OMIT 26 Jun MSG Holiday 44
+OMIT 2026-05-24
+OMIT 10 Jan MSG Holiday 37
+OMIT 19 Jun MSG Holiday 64
+OMIT 26 Feb MSG Holiday 95
+# sync notes 824
+OMIT 24 Jun MSG Holiday 8
+OMIT 2026-08-05
+OMIT 2026-12-20
+OMIT 2026-08-15
+OMIT 20 Jan MSG Holiday 93
+OMIT 20 Sep MSG Holiday 70
+# invoice notes 568
+REM Third Sun Aug MSG Observance 39
+OMIT 2 Dec MSG Holiday 79
+OMIT 17 Dec MSG Holiday 91
+# review notes 602
+OMIT 2026-02-08
+OMIT 2026-09-26
+OMIT 22 Mar MSG Holiday 44
+OMIT 25 Apr MSG Holiday 93
+OMIT 2026-03-28
+REM Second Sun Jan MSG Observance 53
+OMIT 17 Jun MSG Holiday 78
+REM Second Tue Apr MSG Observance 79
+REM Fourth Thu Dec MSG Observance 19
+OMIT 5 Jun MSG Holiday 94
+OMIT 10 Dec MSG Holiday 6
+REM Third Fri Sep MSG Observance 49
+OMIT 12 Jan MSG Holiday 6
+OMIT 28 Feb MSG Holiday 64
+OMIT 20 Dec MSG Holiday 40
+OMIT 21 Jan MSG Holiday 79
+OMIT 16 Oct MSG Holiday 83
+OMIT 2026-12-14
+OMIT 20 Aug MSG Holiday 77
+OMIT 2026-12-15
+OMIT 22 Oct MSG Holiday 51
+OMIT 24 Oct MSG Holiday 91
+OMIT 10 Oct MSG Holiday 89
+OMIT 2026-04-17
+OMIT 2026-01-17
+OMIT 2026-07-24
+OMIT 1 Dec MSG Holiday 51
+OMIT 1 Dec MSG Holiday 68
+OMIT 2026-10-23
+# plan notes 695
+# review notes 993
+OMIT 2026-10-23
+OMIT 25 May MSG Holiday 24
+REM Second Wed Jul MSG Observance 12
+OMIT 8 Jan MSG Holiday 13
+OMIT 24 Aug MSG Holiday 53
+OMIT 2026-05-03
+OMIT 2026-11-11
+OMIT 10 Feb MSG Holiday 68
+OMIT 18 Apr MSG Holiday 38
+OMIT 1 Jul MSG Holiday 73
+OMIT 10 Jul MSG Holiday 90
+OMIT 23 Apr MSG Holiday 50
+OMIT 9 Sep MSG Holiday 42
+REM Last Mon Jun MSG Observance 46
+OMIT 7 Mar MSG Holiday 6
+REM Second Wed Jun MSG Observance 10
+REM Fourth Mon Feb MSG Observance 12
+OMIT 2026-07-06
+OMIT 2026-09-13
+OMIT 2 Jan MSG Holiday 54
+OMIT 19 Mar MSG Holiday 57
+OMIT 2026-04-11
+OMIT 11 Sep MSG Holiday 94
+OMIT 10 Feb MSG Holiday 28
+OMIT 23 Feb MSG Holiday 41
+OMIT 3 Sep MSG Holiday 80
+OMIT 2026-08-16
+OMIT 8 May MSG Holiday 40
+OMIT 8 Jan MSG Holiday 88
+# call notes 250
+OMIT 21 Jun MSG Holiday 32
+OMIT 2026-10-23
+OMIT 2026-07-10
+OMIT 15 Oct MSG Holiday 11
+OMIT 2026-01-05
+REM Fourth Tue Jan MSG Observance 3
+OMIT 16 Jan MSG Holiday 31
+# demo notes 578
+REM Third Tue Aug MSG Observance 30
+REM First Mon Dec MSG Observance 77
+OMIT 4 Apr MSG Holiday 61
+OMIT 10 May MSG Holiday 6
+OMIT 2026-10-24
