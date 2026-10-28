@@ -229,3 +229,46 @@ test('Escape closes without adding', async ({ page }) => {
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 	expect(await fileText(page, 'reminders.rem')).not.toContain('Never added');
 });
+
+test('layout stays put while typing', async ({ page }) => {
+	test.skip(!test.info().project.name.startsWith('phone'), 'measured on the phone sheet');
+	const dialog = await openQuickAdd(page);
+	const field = dialog.getByLabel('Describe the reminder');
+	const add = dialog.getByRole('button', { name: 'Add reminder' });
+	const rows = dialog.getByTestId('nextdates');
+	// Let the sheet's slide-up animation finish before measuring.
+	await expect
+		.poll(async () => {
+			const a = (await add.boundingBox())!.y;
+			await page.waitForTimeout(100);
+			return a === (await add.boundingBox())!.y;
+		})
+		.toBe(true);
+	const addTop = (await add.boundingBox())!.y;
+	const fieldTop = (await field.boundingBox())!.y;
+
+	let first = false;
+	for (const ch of 'Dentist next Thu 3:30pm, warn me 3 days before') {
+		await page.keyboard.type(ch, { delay: 40 });
+		expect((await add.boundingBox())!.y).toBe(addTop);
+		expect((await field.boundingBox())!.y).toBe(fieldTop);
+		const box = (await rows.count()) ? await rows.boundingBox() : null;
+		if (box) {
+			first = true;
+		}
+		if (first) {
+			// Once there is a result, the row stays (dimmed while updating).
+			expect(box, `next dates vanished after "${ch}"`).not.toBeNull();
+			expect(box!.height).toBeGreaterThan(0);
+		}
+		// Read both in one step: a stale result never goes with an enabled Add.
+		const both = await dialog.evaluate((d) => ({
+			stale: d.querySelector('[data-testid=check]')?.getAttribute('data-stale'),
+			disabled: d.querySelector<HTMLButtonElement>('.add')?.disabled
+		}));
+		if (both.stale === 'true') expect(both.disabled).toBe(true);
+	}
+	expect(first).toBe(true);
+	await expect(add).toBeEnabled();
+	await expect(dialog.getByTestId('check')).toHaveAttribute('data-stale', 'false');
+});
