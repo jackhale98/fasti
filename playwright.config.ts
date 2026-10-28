@@ -31,6 +31,10 @@ function findChromium(): string | undefined {
 
 const executablePath = process.env.CI ? process.env.PW_CHROMIUM_PATH : findChromium();
 const launchOptions = executablePath ? { executablePath } : {};
+// Without an explicit binary (CI), run the full Chromium in its new headless mode,
+// not the slimmed "headless shell", which lacks parts of the Notification and
+// service worker APIs that real browsers have.
+const channel = executablePath ? {} : { channel: 'chromium' };
 
 // docs/PLAN.md section 7: phone (390×844) and desktop (1366×860), each in light and dark.
 export default defineConfig({
@@ -50,7 +54,8 @@ export default defineConfig({
 				...devices['Pixel 7'],
 				viewport: { width: 390, height: 844 },
 				colorScheme: 'light',
-				launchOptions
+				launchOptions,
+				...channel
 			}
 		},
 		{
@@ -59,7 +64,8 @@ export default defineConfig({
 				...devices['Pixel 7'],
 				viewport: { width: 390, height: 844 },
 				colorScheme: 'dark',
-				launchOptions
+				launchOptions,
+				...channel
 			}
 		},
 		{
@@ -68,7 +74,8 @@ export default defineConfig({
 				...devices['Desktop Chrome'],
 				viewport: { width: 1366, height: 860 },
 				colorScheme: 'light',
-				launchOptions
+				launchOptions,
+				...channel
 			}
 		},
 		{
@@ -77,7 +84,8 @@ export default defineConfig({
 				...devices['Desktop Chrome'],
 				viewport: { width: 1366, height: 860 },
 				colorScheme: 'dark',
-				launchOptions
+				launchOptions,
+				...channel
 			}
 		}
 	],
