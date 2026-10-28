@@ -11,7 +11,7 @@ import {
 	markDone,
 	replaceLines
 } from '../../src/lib/lens/patch';
-import { physicalLines } from '../../src/lib/lens/tokenize';
+import { analyze, physicalLines } from '../../src/lib/lens/tokenize';
 import type { PatchResult } from '../../src/lib/lens/types';
 
 const snippet = fc.constantFrom(
@@ -19,6 +19,12 @@ const snippet = fc.constantFrom(
 	'REM TODO Sun +2 MSG Water the plants %b',
 	'REM TODO 15 ++5 COMPLETE-THROUGH 2026-09-15 MSG Pay card %b',
 	'REM TODO 30 Apr COMPLETE-THROUGH 15 Aug 2025 MSG File taxes',
+	'REM TODO COMPLETE-THROUGH 15 Aug 2025 1 Sep 2025 *7 MSG x',
+	'REM TODO COMPLETE-THROUGH 15 Aug 2025 Last Fri MSG x',
+	'REM TODO COMPLETE-THROUGH 2025-08-15 2026-01-01 *7 MSG x',
+	'REM TODO COMPLETE-THROUGH 15 \\',
+	'  Aug 2025 \\',
+	'  Lastday MSG x',
 	'REM 2026-10-28 AT 15:30 INFO "Location: Elm" \\',
 	'    MSG Dentist %b',
 	'REM Mon \\',
@@ -193,6 +199,29 @@ describe('patch properties', () => {
 				expect(second!.text).toBe(first.text);
 			}),
 			{ numRuns: 500 }
+		);
+	});
+
+	it('markDone keeps the line structure and a parsable line', () => {
+		fc.assert(
+			fc.property(fileArb, fc.nat(10), isoArb, (text, a0, date) => {
+				const a = a0 % lineCount(text);
+				const r = markDone(text, a, date);
+				if (!r) return;
+				expect(lineCount(r.text)).toBe(lineCount(text));
+				const L = analyze(r.text).find((l) => a >= l.start && a <= l.end)!;
+				expect(L.kind).toBe('rem');
+				expect(L.rem!.complete).toEqual({
+					y: +date.slice(0, 4),
+					m: +date.slice(5, 7),
+					d: +date.slice(8, 10)
+				});
+				// everything outside the logical line is untouched
+				const before = analyze(text).find((l) => a >= l.start && a <= l.end)!;
+				expect(r.text.slice(0, before.offset)).toBe(text.slice(0, before.offset));
+				expect(r.text.endsWith(text.slice(before.offset + before.raw.length))).toBe(true);
+			}),
+			{ numRuns: 1000 }
 		);
 	});
 

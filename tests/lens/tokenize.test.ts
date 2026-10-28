@@ -12,27 +12,43 @@ describe('logical lines', () => {
 		expect(a!.start).toBe(0);
 		expect(a!.end).toBe(1);
 		expect(a!.raw).toBe('REM 2026-10-28 \\\n    MSG Dentist');
-		expect(a!.joined).toBe('REM 2026-10-28     MSG Dentist');
+		// the backslash becomes a newline (whitespace), as in Remind
+		expect(a!.joined).toBe('REM 2026-10-28 \n    MSG Dentist');
 		expect(a!.eol).toBe('\n');
-		for (let i = 0; i < a!.joined.length; i++) expect(a!.raw[a!.map[i]!]).toBe(a!.joined[i]);
+		for (let i = 0; i < a!.joined.length; i++) {
+			const c = a!.joined[i];
+			expect(a!.raw[a!.map[i]!]).toBe(c === '\n' ? '\\' : c);
+		}
 		expect(a!.map[a!.map.length - 1]).toBe(a!.raw.length);
 		expect(b!.start).toBe(2);
 		expect(b!.offset).toBe(text.indexOf('REM Mon'));
 	});
 
-	it('handles CRLF continuations', () => {
+	it('a backslash before CRLF is not a continuation (Remind does not strip the CR)', () => {
 		const text = 'REM 2026-10-28 \\\r\n  MSG hi\r\nREM Mon MSG x\r\n';
 		const lines = logicalLines(text);
-		expect(lines).toHaveLength(3);
-		expect(lines[0]!.joined).toBe('REM 2026-10-28   MSG hi');
+		expect(lines).toHaveLength(4);
+		expect(lines[0]!.raw).toBe('REM 2026-10-28 \\');
 		expect(lines[0]!.eol).toBe('\r\n');
-		expect(lines[1]!.raw).toBe('REM Mon MSG x');
-		expect(lines[2]!.raw).toBe('');
-		expect(lines[2]!.eol).toBe('');
+		expect(lines[3]!.eol).toBe('');
 	});
 
-	it('an even run of backslashes is not a continuation', () => {
-		expect(logicalLines('MSG a\\\\\nREM x')).toHaveLength(2);
+	it('a continuation inside a CRLF file works when the backslash is followed by a bare LF', () => {
+		const lines = logicalLines('REM Mon \\\n MSG hi\r\nREM Tue MSG x');
+		expect(lines).toHaveLength(2);
+		expect(lines[0]!.eol).toBe('\r\n');
+	});
+
+	it('the backslash acts as whitespace, so words do not run together', () => {
+		const L = one('REM TODO Mon\\\nMSG x');
+		expect(L.kind).toBe('rem');
+		expect(L.joined).toBe('REM TODO Mon\nMSG x');
+		expect(L.tokens.map((t) => t.text)).toEqual(['REM', 'TODO', 'Mon', 'MSG', 'x']);
+		for (const t of L.tokens) expect(L.raw.slice(t.rawStart, t.rawEnd)).toBe(t.text);
+	});
+
+	it('any trailing backslash continues, even after an even run', () => {
+		expect(logicalLines('MSG a\\\\\nREM x')).toHaveLength(1);
 		expect(logicalLines('MSG a\\\\\\\nREM x')).toHaveLength(1);
 	});
 

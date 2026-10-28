@@ -62,7 +62,7 @@ export function lineSegments(prefix: string | null, line: string): Segment[] {
 	return out;
 }
 
-const continues = (s: string): boolean => (/(\\+)$/.exec(s)?.[1]?.length ?? 0) % 2 === 1;
+const continues = (s: string): boolean => s.endsWith('\\');
 
 const language = StreamLanguage.define<State>({
 	name: 'remind',

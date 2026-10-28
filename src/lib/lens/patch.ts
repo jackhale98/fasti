@@ -94,7 +94,7 @@ export function replaceLines(
 export const deleteLines = (text: string, start: number, end = start): PatchResult =>
 	replaceLines(text, start, end, null);
 
-/** Insert `newText` as new lines before physical line `at` (0..lineCount; lineCount appends). */
+/** Insert `newText` as new lines before physical line `at` (0..lineCount; lineCount is the same as appendLines). */
 export function insertLines(text: string, at: number, newText: string): PatchResult {
 	const P = physicalLines(text);
 	if (!Number.isInteger(at) || at < 0 || at > P.length)
@@ -102,7 +102,7 @@ export function insertLines(text: string, at: number, newText: string): PatchRes
 	const eol = detectEol(text);
 	const body = joinWith(newText, [], eol);
 	if (at < P.length) return make(text, P[at]!.start, P[at]!.start, body + eol);
-	return make(text, text.length, text.length, eol + body);
+	return appendLines(text, newText);
 }
 
 /**
@@ -142,22 +142,21 @@ export function markDone(text: string, line: number, date: IsoDate): PatchResult
 	if (!L || !L.rem || !L.rem.todo) return null;
 	const body = L.rem.bodyStart;
 	const toks = L.tokens;
-	const at = toks.findIndex(
-		(t) => t.s < body && t.role === 'kw' && /^COMPLETED?-THROUGH$/i.test(t.text)
-	);
-	if (at >= 0) {
-		const first = toks[at + 1];
-		if (!first || first.role !== 'date') {
-			if (first?.role === 'expr') return null;
-			const pos = L.offset + toks[at]!.rawEnd;
-			return make(text, pos, pos, ' ' + iso);
+	const range = L.rem.completeTokens;
+	if (L.rem.complete != null) {
+		if (L.rem.complete === 'expr' || !range) return null;
+		// Exactly the tokens the parser took as the date, nothing after them.
+		const first = toks[range[0]]!;
+		let out = iso;
+		let end = first.rawEnd;
+		for (let k = range[0] + 1; k <= range[1]; k++) {
+			const tk = toks[k]!;
+			const gap = L.raw.slice(end, tk.rawStart);
+			// Drop a later word with the blanks before it; keep a continuation intact.
+			if (gap.includes('\n')) out += gap;
+			end = tk.rawEnd;
 		}
-		let last = first;
-		// An ISO date is one word; `15 Aug 2025` is up to three.
-		const single = /^\d{4}[-/]/.test(first.text);
-		for (let k = at + 2; !single && toks[k] && toks[k]!.role === 'date' && toks[k]!.s < body; k++)
-			last = toks[k]!;
-		return make(text, L.offset + first.rawStart, L.offset + last.rawEnd, iso);
+		return make(text, L.offset + first.rawStart, L.offset + end, out);
 	}
 	const kw = toks.find((t) => t.role === 'kw' && t.s < body && BODY_KW.has(t.text.toUpperCase()));
 	if (!kw) return null;

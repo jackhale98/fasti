@@ -98,6 +98,27 @@ describe('safety rules', () => {
 	});
 });
 
+describe('impossible dates are never written', () => {
+	it.each([
+		['dentist 31 Feb', 'REM 2026-10-28 MSG Dentist 31 Feb'],
+		['pay 2026-02-30', 'REM 2026-10-28 MSG Pay 2026-02-30'],
+		['pay until 2026-13-45', 'REM 2026-10-28 MSG Pay until 2026-13-45'],
+		['trash every 7 days from 2026-02-30', 'REM 2026-10-28 MSG Trash every 7 days from 2026-02-30'],
+		['party every 31 feb', 'REM 2026-10-28 MSG Party every 31 feb'],
+		['call at 25:61', 'REM 2026-10-28 MSG Call at 25:61']
+	])('%s', (input, line) => {
+		const m = parse(input, today);
+		expect(toRem(m, today)).toBe(line);
+		expect(m.recognised).toBe(false);
+		expect(m.until).toBeNull();
+	});
+
+	it('real leap days are still understood', () => {
+		expect(toRem(parse('party 29 feb 2028', today), today)).toBe('REM 2028-02-29 MSG Party');
+		expect(toRem(parse('party 29 feb', today), today)).toBe('REM 2028-02-29 MSG Party');
+	});
+});
+
 describe('model', () => {
 	it('records what was understood', () => {
 		const m = parse('standup every weekday at 9:30 for 15 min', today);

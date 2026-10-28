@@ -141,33 +141,36 @@ export function physicalLines(text: string): Physical[] {
 /** `RegExp.exec` typed so numbered groups are strings (a group that did not match is undefined at run time). */
 const rx = (re: RegExp, s: string): Match | null => re.exec(s) as Match | null;
 
-const endsWithContinuation = (s: string): boolean => {
-	const m = rx(/(\\+)$/, s);
-	return !!m && m[1].length % 2 === 1;
-};
+/**
+ * Whether a physical line continues on the next, exactly as Remind's files.c
+ * decides: the last byte before the "\n" is a backslash. Any trailing
+ * backslash counts (even after an even run), and a CR is not stripped, so
+ * a backslash before CRLF is not a continuation.
+ */
+const continues = (text: string, p: Physical): boolean =>
+	p.eol === '\n' && p.end > p.start && text[p.end - 1] === '\\';
 
-/** Split a file into logical lines, joining backslash continuations (LF or CRLF). */
+/**
+ * Split a file into logical lines. Like Remind, a trailing backslash is
+ * replaced by a newline, which is whitespace, and the next line follows.
+ */
 export function logicalLines(text: string): LogicalLine[] {
 	const phys = physicalLines(text);
 	const out: LogicalLine[] = [];
 	for (let i = 0; i < phys.length; i++) {
 		const start = i;
-		while (endsWithContinuation(text.slice(phys[i]!.start, phys[i]!.end)) && i + 1 < phys.length)
-			i++;
+		while (continues(text, phys[i]!) && i + 1 < phys.length) i++;
 		const offset = phys[start]!.start;
 		const raw = text.slice(offset, phys[i]!.end);
 		let joined = '';
 		const map: number[] = [];
 		for (let k = 0; k < raw.length; k++) {
-			if (raw[k] === '\\') {
-				if (raw[k + 1] === '\n') {
-					k++;
-					continue;
-				}
-				if (raw[k + 1] === '\r' && raw[k + 2] === '\n') {
-					k += 2;
-					continue;
-				}
+			if (raw[k] === '\\' && raw[k + 1] === '\n') {
+				// The backslash becomes a newline; the raw newline itself is dropped.
+				joined += '\n';
+				map.push(k);
+				k++;
+				continue;
 			}
 			joined += raw[k];
 			map.push(k);
@@ -301,7 +304,8 @@ function newRem(): RemSpec {
 		bodyStart: 0,
 		sugar: null,
 		engine: [],
-		engineWhen: false
+		engineWhen: false,
+		completeTokens: null
 	};
 }
 
@@ -544,6 +548,7 @@ export function parseRem(text: string, toks: Token[]): RemSpec {
 				tk.role = 'kw';
 				const r = parseDateClause(toks, i + 1, U);
 				rem.complete = r.lit;
+				rem.completeTokens = [i + 1, r.next - 1];
 				clauseExpr(r);
 				i = r.next;
 				continue;

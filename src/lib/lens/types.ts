@@ -103,6 +103,8 @@ export interface RemSpec {
 	engine: string[];
 	/** True when the day itself is chosen by an expression, SATISFY or OMITFUNC. */
 	engineWhen: boolean;
+	/** Indices of the first and last token of the date after COMPLETE-THROUGH, when parsed. */
+	completeTokens: [number, number] | null;
 	/** True for the reminder carried by an `OMIT ... MSG` line. */
 	fromOmit?: boolean;
 }

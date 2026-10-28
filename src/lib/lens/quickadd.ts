@@ -109,6 +109,11 @@ const ORDW: Record<string, number | 'last'> = {
 	last: 'last'
 };
 
+/** True for a real calendar date; used only to refuse impossible input. */
+function validYmd(y: number, m: number, d: number): boolean {
+	return m >= 1 && m <= 12 && d >= 1 && d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
 const p2 = (v: number): string => String(v).padStart(2, '0');
 const iso = (d: Ymd): string => `${d.y}-${p2(d.m)}-${p2(d.d)}`;
 
@@ -139,10 +144,11 @@ export function blank(today: Ymd): QuickModel {
 export function parse(input: string, today: Ymd): QuickModel {
 	const m = blank(today);
 	let s = ' ' + input.trim() + ' ';
-	const take = (re: RegExp, fn: (r: Match) => void): boolean => {
+	// A callback returning false rejects the match (nothing is consumed).
+	const take = (re: RegExp, fn: (r: Match) => void | false): boolean => {
 		const r = re.exec(s) as Match | null;
 		if (!r) return false;
-		fn(r);
+		if (fn(r) === false) return false;
 		s = s.slice(0, r.index) + ' ' + s.slice(r.index + r[0].length);
 		return true;
 	};
@@ -153,15 +159,16 @@ export function parse(input: string, today: Ymd): QuickModel {
 		return calendar.ymd(n);
 	};
 	const offset = (days: number): Ymd => calendar.ymd(T + days);
-	const dateFrom = (d: string | number, mo: number, y?: string): Ymd => {
-		if (y) return calendar.ymd(calendar.num(+y, mo, +d));
-		let n = calendar.num(today.y, mo, +d);
-		if (n < T) n = calendar.num(today.y + 1, mo, +d);
-		return calendar.ymd(n);
+	// Impossible dates (31 Feb, 2026-13-45) are never recognised, so nothing is rolled over.
+	const dateFrom = (d: string | number, mo: number, y?: string): Ymd | null => {
+		if (y) return validYmd(+y, mo, +d) ? { y: +y, m: mo, d: +d } : null;
+		for (let yy = today.y; yy <= today.y + 8; yy++)
+			if (validYmd(yy, mo, +d) && calendar.num(yy, mo, +d) >= T) return { y: yy, m: mo, d: +d };
+		return null;
 	};
-	const fromIso = (txt: string): Ymd => {
+	const fromIso = (txt: string): Ymd | null => {
 		const [y, mo, d] = txt.split('-').map(Number) as [number, number, number];
-		return calendar.ymd(calendar.num(y, mo, d));
+		return validYmd(y, mo, d) ? { y, m: mo, d } : null;
 	};
 	let found = false;
 
@@ -183,13 +190,19 @@ export function parse(input: string, today: Ymd): QuickModel {
 		m.omitMode = 'SKIP';
 	});
 	take(/\b(?:until|till|through) (\d{4}-\d{2}-\d{2})\b/i, (r) => {
-		m.until = fromIso(r[1]);
+		const u = fromIso(r[1]);
+		if (!u) return false;
+		m.until = u;
 	});
 	take(new RegExp(`\\b(?:until|till|through) (\\d{1,2})(?:st|nd|rd|th)? ${MORE}\\b`, 'i'), (r) => {
-		m.until = dateFrom(r[1], moOf(r[2]));
+		const u = dateFrom(r[1], moOf(r[2]));
+		if (!u) return false;
+		m.until = u;
 	});
 	take(new RegExp(`\\b(?:until|till|through) ${MORE} (\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i'), (r) => {
-		m.until = dateFrom(r[2], moOf(r[1]));
+		const u = dateFrom(r[2], moOf(r[1]));
+		if (!u) return false;
+		m.until = u;
 	});
 	// time
 	take(/\b(?:at |@)?(noon|midday)\b/i, () => {
@@ -199,18 +212,21 @@ export function parse(input: string, today: Ymd): QuickModel {
 		take(/\b(?:at |@)?(\d{1,2})(?:[:.](\d{2}))?\s?(am|pm|a\.m\.|p\.m\.)(?=\W)/i, (r) => {
 			let h = +r[1] % 12;
 			if (r[3][0]!.toLowerCase() === 'p') h += 12;
+			if (+r[1] < 1 || +r[1] > 12 || +r[2] > 59) return false;
 			m.time = h * 60 + (+r[2] || 0);
 		});
 	if (m.time == null)
 		take(/\b(?:at |@)(\d{1,2})[:.](\d{2})\b/i, (r) => {
+			if (+r[1] > 23 || +r[2] > 59) return false;
 			m.time = +r[1] * 60 + +r[2];
 		});
 	if (m.time == null)
 		take(/\s(\d{1,2}):(\d{2})\s/, (r) => {
+			if (+r[1] > 23 || +r[2] > 59) return false;
 			m.time = +r[1] * 60 + +r[2];
 		});
 	// recurrence
-	const rec: [RegExp, (r: Match) => void][] = [
+	const rec: [RegExp, (r: Match) => void | false][] = [
 		[
 			/\bevery (?:other|second) (week)?\s?(?:on )?WD\b/i,
 			(r) => {
@@ -222,9 +238,11 @@ export function parse(input: string, today: Ymd): QuickModel {
 		[
 			/\bevery (\d+) (day|week)s?(?: (?:starting|from) (\d{4}-\d{2}-\d{2}))?\b/i,
 			(r) => {
+				const start = r[3] ? fromIso(r[3]) : null;
+				if (r[3] && !start) return false;
 				m.kind = 'interval';
 				m.interval = +r[1] * (r[2][0]!.toLowerCase() === 'w' ? 7 : 1);
-				if (r[3]) m.date = fromIso(r[3]);
+				if (start) m.date = start;
 			}
 		],
 		[
@@ -277,13 +295,16 @@ export function parse(input: string, today: Ymd): QuickModel {
 		[
 			/\b(?:on the )?(\d{1,2})(?:st|nd|rd|th)? (?:of )?(?:every|each) month\b|\b(?:every month|monthly) on the (\d{1,2})(?:st|nd|rd|th)?\b/i,
 			(r) => {
+				const day = +(r[1] || r[2]);
+				if (day < 1 || day > 31) return false;
 				m.kind = 'monthly-day';
-				m.day = +(r[1] || r[2]);
+				m.day = day;
 			}
 		],
 		[
 			/\b(?:every|each|yearly|annually) (?:year )?(?:on )?(\d{1,2})(?:st|nd|rd|th)? MO\b/i,
 			(r) => {
+				if (!validYmd(2024, moOf(r[2]), +r[1])) return false;
 				m.kind = 'yearly';
 				m.day = +r[1];
 				m.month = moOf(r[2]);
@@ -292,6 +313,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 		[
 			/\b(?:every|each|yearly|annually) (?:year )?(?:on )?MO (\d{1,2})(?:st|nd|rd|th)?\b/i,
 			(r) => {
+				if (!validYmd(2024, moOf(r[1]), +r[2])) return false;
 				m.kind = 'yearly';
 				m.day = +r[2];
 				m.month = moOf(r[1]);
@@ -321,7 +343,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 	}
 	// single dates (also used as the start of an interval)
 	if (!found || m.kind === 'interval') {
-		const singles: [RegExp, (r: Match) => Ymd][] = [
+		const singles: [RegExp, (r: Match) => Ymd | null][] = [
 			[/\bday after tomorrow\b/i, () => offset(2)],
 			[/\btoday\b|\btonight\b|\bthis (?:morning|afternoon|evening)\b/i, () => offset(0)],
 			[/\btomorrow\b|\btmrw\b/i, () => offset(1)],
@@ -330,7 +352,10 @@ export function parse(input: string, today: Ymd): QuickModel {
 				(r) => offset(+r[1] * (r[2][0]!.toLowerCase() === 'w' ? 7 : 1))
 			],
 			[/\bnext week\b/i, () => nextWd(1, true)],
-			[/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/, (r) => calendar.ymd(calendar.num(+r[1], +r[2], +r[3]))],
+			[
+				/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/,
+				(r) => (validYmd(+r[1], +r[2], +r[3]) ? { y: +r[1], m: +r[2], d: +r[3] } : null)
+			],
 			[
 				/\b(?:on )?(?:the )?(\d{1,2})(?:st|nd|rd|th)? (?:of )?MO(?: (\d{4}))?\b/i,
 				(r) => dateFrom(r[1], moOf(r[2]), r[3])
@@ -348,6 +373,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 			if (
 				take(re2, (r) => {
 					n = fn(r);
+					if (!n) return false;
 				})
 			) {
 				m.date = n!;

@@ -11,6 +11,7 @@ import {
 	markDone,
 	replaceLines
 } from '../../src/lib/lens/patch';
+import { analyze } from '../../src/lib/lens/tokenize';
 import type { PatchResult } from '../../src/lib/lens/types';
 
 const LF = 'REM Mon MSG a\n# keep   me \nREM Tue MSG b\n';
@@ -165,10 +166,10 @@ describe('markDone', () => {
 
 	it('works across a continuation and CRLF', () => {
 		const t =
-			'# top\r\nREM TODO 2026-10-20 +3 INFO "Location: Elm" \\\r\n    MSG Dentist %b\r\nREM Mon MSG z\r\n';
+			'# top\r\nREM TODO 2026-10-20 +3 INFO "Location: Elm" \\\n    MSG Dentist %b\r\nREM Mon MSG z\r\n';
 		const r = markDone(t, 2, '2026-10-27')!;
 		expect(r.text).toBe(
-			'# top\r\nREM TODO 2026-10-20 +3 INFO "Location: Elm" \\\r\n    COMPLETE-THROUGH 2026-10-27 MSG Dentist %b\r\nREM Mon MSG z\r\n'
+			'# top\r\nREM TODO 2026-10-20 +3 INFO "Location: Elm" \\\n    COMPLETE-THROUGH 2026-10-27 MSG Dentist %b\r\nREM Mon MSG z\r\n'
 		);
 		roundTrip(t, r);
 		// the same date again changes nothing
@@ -210,5 +211,55 @@ describe('markDone', () => {
 
 	it('rejects a malformed date', () => {
 		expect(() => markDone(todo, 0, 'tomorrow')).toThrow(RangeError);
+	});
+});
+
+describe('review regressions', () => {
+	it('markDone replaces only the tokens of the COMPLETE-THROUGH date', () => {
+		const cases: [string, string][] = [
+			[
+				'REM TODO COMPLETE-THROUGH 15 Aug 2025 1 Sep 2025 *7 MSG x',
+				'REM TODO COMPLETE-THROUGH 2026-10-27 1 Sep 2025 *7 MSG x'
+			],
+			[
+				'REM TODO COMPLETE-THROUGH 15 Aug 2025 Last Fri MSG x',
+				'REM TODO COMPLETE-THROUGH 2026-10-27 Last Fri MSG x'
+			],
+			[
+				'REM TODO COMPLETE-THROUGH 15 Aug 2025 2026-11-01 *7 MSG x',
+				'REM TODO COMPLETE-THROUGH 2026-10-27 2026-11-01 *7 MSG x'
+			],
+			[
+				'REM TODO COMPLETE-THROUGH 15 Aug 2025 Lastday MSG x',
+				'REM TODO COMPLETE-THROUGH 2026-10-27 Lastday MSG x'
+			],
+			[
+				'REM TODO COMPLETE-THROUGH 15 Aug 2025 20 MSG x',
+				'REM TODO COMPLETE-THROUGH 2026-10-27 20 MSG x'
+			]
+		];
+		for (const [before, after] of cases) {
+			const r = markDone(before, 0, '2026-10-27')!;
+			expect(r.text).toBe(after);
+			expect(analyze(r.text)[0]!.kind).toBe('rem');
+		}
+	});
+
+	it('keeps the continuation when a multi-token date spans one', () => {
+		const t = 'REM TODO COMPLETE-THROUGH 15 \\\n  Aug \\\n  2025 MSG x\nnext';
+		const r = markDone(t, 0, '2026-10-27')!;
+		expect(r.text.split('\n')).toHaveLength(t.split('\n').length);
+		expect(r.text).toBe('REM TODO COMPLETE-THROUGH 2026-10-27 \\\n   \\\n   MSG x\nnext');
+		expect(analyze(r.text)[0]!.kind).toBe('rem');
+		roundTrip(t, r);
+	});
+
+	it('insertLines at lineCount behaves like appendLines', () => {
+		for (const t of ['a\n', 'a', 'a\r\nb\r\n', '', 'a\nb']) {
+			expect(insertLines(t, lineCount(t), 'X').text).toBe(appendLines(t, 'X').text);
+		}
+		expect(insertLines('a\n', 2, 'X').text).toBe('a\nX\n');
+		expect(insertLines('a\r\n', 2, 'X').text).toBe('a\r\nX\r\n');
+		expect(() => insertLines('a\n', 3, 'X')).toThrow(RangeError);
 	});
 });
