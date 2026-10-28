@@ -24,7 +24,9 @@
 	}
 </script>
 
-<fieldset>
+<!-- Disabled until the saved settings load: a choice made over the defaults would be lost. -->
+
+<fieldset disabled={!app.settingsLoaded}>
 	<legend>Week starts on</legend>
 	{#each weekChoices as c (c.value)}
 		<label>
@@ -40,7 +42,7 @@
 	{/each}
 </fieldset>
 
-<fieldset>
+<fieldset disabled={!app.settingsLoaded}>
 	<legend>Times</legend>
 	{#each clockChoices as c (c.value)}
 		<label>
@@ -56,7 +58,7 @@
 	{/each}
 </fieldset>
 
-<fieldset>
+<fieldset disabled={!app.settingsLoaded}>
 	<legend>Tasks</legend>
 	<label>
 		<input

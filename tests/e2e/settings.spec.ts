@@ -9,6 +9,37 @@ async function open(page: Page) {
 	await expect(page.getByLabel('Main entry').locator('option')).not.toHaveCount(1);
 }
 
+/**
+ * Wait until a setting has been written to IndexedDB, so a reload or navigation
+ * sees it. (expect.poll, not waitForFunction: a Promise predicate is truthy at once.)
+ */
+async function saved(page: Page, key: string, value: string | boolean) {
+	await expect
+		.poll(() =>
+			page.evaluate(
+				(key) =>
+					new Promise<unknown>((resolve) => {
+						const req = indexedDB.open('fasti');
+						req.onerror = () => resolve(undefined);
+						req.onsuccess = () => {
+							const db = req.result;
+							const get = db.transaction('settings').objectStore('settings').get('app');
+							get.onsuccess = () => {
+								db.close();
+								resolve((get.result as Record<string, unknown> | undefined)?.[key]);
+							};
+							get.onerror = () => {
+								db.close();
+								resolve(undefined);
+							};
+						};
+					}),
+				key
+			)
+		)
+		.toBe(value);
+}
+
 /** Open the month view on a Thursday in the current month and return the day list text. */
 async function thursdayList(page: Page) {
 	await page.goto('/month');
@@ -36,6 +67,7 @@ test('sections come in order with labelled controls', async ({ page }) => {
 test('Monday start persists and reorders the Month header', async ({ page }) => {
 	await open(page);
 	await page.getByRole('radio', { name: 'Monday' }).check();
+	await saved(page, 'weekStart', 'monday');
 	await page.reload();
 	await expect(page.getByRole('radio', { name: 'Monday' })).toBeChecked();
 	await page.goto('/month');
@@ -44,6 +76,7 @@ test('Monday start persists and reorders the Month header', async ({ page }) => 
 	await page.goto('/settings');
 	await page.getByRole('radio', { name: 'Sunday' }).check();
 	// Saving is asynchronous: wait until it has persisted before leaving the page.
+	await saved(page, 'weekStart', 'sunday');
 	await page.reload();
 	await expect(page.getByRole('radio', { name: 'Sunday' })).toBeChecked();
 	await page.goto('/month');
@@ -53,6 +86,7 @@ test('Monday start persists and reorders the Month header', async ({ page }) => 
 test('24-hour times persist and show 14:00 for Design review', async ({ page }) => {
 	await open(page);
 	await page.getByRole('radio', { name: /^24-hour/ }).check();
+	await saved(page, 'clock', '24h');
 	await page.reload();
 	await expect(page.getByRole('radio', { name: /^24-hour/ })).toBeChecked();
 	const main = await thursdayList(page);
@@ -60,6 +94,7 @@ test('24-hour times persist and show 14:00 for Design review', async ({ page }) 
 	await expect(main.getByText('14:00').locator('visible=true').first()).toBeVisible();
 	await page.goto('/settings');
 	await page.getByRole('radio', { name: /^12-hour/ }).check();
+	await saved(page, 'clock', '12h');
 	const again = await thursdayList(page);
 	await expect(
 		again
@@ -73,6 +108,7 @@ test('hide completed TODOs persists', async ({ page }) => {
 	await open(page);
 	const box = page.getByRole('checkbox', { name: 'Hide completed TODOs' });
 	await box.check();
+	await saved(page, 'hideCompletedTodos', true);
 	await page.reload();
 	await expect(box).toBeChecked();
 	await page.goto('/month');
@@ -80,6 +116,7 @@ test('hide completed TODOs persists', async ({ page }) => {
 	await page.goto('/settings');
 	await expect(box).toBeChecked();
 	await box.uncheck();
+	await saved(page, 'hideCompletedTodos', false);
 	await page.reload();
 	await expect(box).not.toBeChecked();
 });

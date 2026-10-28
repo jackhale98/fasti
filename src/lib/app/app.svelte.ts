@@ -32,6 +32,8 @@ class App {
 	/** A message when loading failed (no IndexedDB, a broken database). */
 	error = $state<string | null>(null);
 	settings = $state<Settings>({ ...DEFAULT_SETTINGS });
+	/** True once the saved settings are read; until then `settings` holds the defaults. */
+	settingsLoaded = $state(false);
 	/**
 	 * The snapshot Remind runs on; replaced (never mutated) after every change.
 	 * Raw, not a deep proxy, so it can be posted to the engine worker as is
@@ -61,6 +63,7 @@ class App {
 		try {
 			this.#db = await openFastiDB();
 			this.settings = await getSettings(this.#db);
+			this.settingsLoaded = true;
 			this.#vault = await ensureBrowserVault(this.#db);
 			await this.refresh();
 			this.ready = true;
