@@ -24,7 +24,7 @@
 	let seq = 0;
 
 	$effect(() => {
-		const snapshot = app.snapshot ? $state.snapshot(app.snapshot) : null;
+		const snapshot = app.snapshot;
 		const now = app.today;
 		void app.version;
 		const mondayFirst = app.settings.weekStart === 'monday';
