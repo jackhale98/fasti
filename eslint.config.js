@@ -27,7 +27,13 @@ export default ts.config(
 	...svelte.configs.recommended,
 	{
 		languageOptions: {
-			globals: { ...globals.browser, ...globals.node }
+			globals: {
+				...globals.browser,
+				...globals.node,
+				// Build-time constants from vite.config.ts `define`.
+				__APP_COMMIT__: 'readonly',
+				__APP_BUILT__: 'readonly'
+			}
 		}
 	},
 	{
