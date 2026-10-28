@@ -104,7 +104,8 @@
 	</main>
 
 	<aside class="panel" aria-label="Inspector">
-		{#if shell.selected}
+		<!-- On phones the inspector lives in the sheet below; mount it only once. -->
+		{#if desktop && shell.selected}
 			{#key `${shell.selected.file}:${shell.selected.line}:${shell.selected.date}`}
 				<Inspector selection={shell.selected} />
 			{/key}
