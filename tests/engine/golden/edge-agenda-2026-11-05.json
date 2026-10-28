@@ -1,0 +1,79 @@
+{
+	"banner": "Reminders for Thursday, 5th November, 2026:",
+	"entries": [
+		{
+			"date": "2026-11-05",
+			"file": "reminders.rem",
+			"line": 8,
+			"lineEnd": 10,
+			"body": "Long reminder     spanning three lines",
+			"rawBody": null,
+			"time": 570,
+			"duration": 60,
+			"eventStart": {
+				"date": "2026-11-05",
+				"time": 570
+			},
+			"priority": 5000,
+			"isTodo": false,
+			"completeThrough": null,
+			"completed": false,
+			"tags": [],
+			"info": {},
+			"special": null,
+			"color": null,
+			"delta": null,
+			"tz": null
+		},
+		{
+			"date": "2026-11-04",
+			"file": "reminders.rem",
+			"line": 23,
+			"lineEnd": 23,
+			"body": "Overdue task",
+			"rawBody": null,
+			"time": null,
+			"duration": null,
+			"eventStart": null,
+			"priority": 5000,
+			"isTodo": true,
+			"completeThrough": null,
+			"completed": false,
+			"tags": [],
+			"info": {},
+			"special": null,
+			"color": null,
+			"delta": null,
+			"tz": null
+		},
+		{
+			"date": "2026-11-10",
+			"file": "reminders.rem",
+			"line": 25,
+			"lineEnd": 25,
+			"body": "Heads-up in 5 days' time",
+			"rawBody": null,
+			"time": null,
+			"duration": null,
+			"eventStart": null,
+			"priority": 5000,
+			"isTodo": false,
+			"completeThrough": null,
+			"completed": false,
+			"tags": [],
+			"info": {},
+			"special": null,
+			"color": null,
+			"delta": 3,
+			"tz": null
+		}
+	],
+	"diagnostics": [
+		{
+			"file": "reminders.rem",
+			"line": 27,
+			"message": "Ill-formed time: `25:99'",
+			"warning": false
+		}
+	]
+}

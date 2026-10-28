@@ -1,0 +1,829 @@
+{
+	"month": {
+		"month": "2026-12",
+		"year": 2026,
+		"monthNumber": 12,
+		"monthName": "December",
+		"daysInMonth": 31,
+		"firstWeekday": 2,
+		"mondayFirst": false,
+		"dayNames": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+		"prev": {
+			"name": "November",
+			"year": 2026,
+			"days": 30
+		},
+		"next": {
+			"name": "January",
+			"year": 2027,
+			"days": 31
+		},
+		"days": [
+			{
+				"date": "2026-12-01",
+				"day": 1,
+				"weekday": 2,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-01",
+						"file": "sub/work.rem",
+						"line": 3,
+						"lineEnd": 3,
+						"body": "Sam",
+						"rawBody": "1:1 with %\"Sam%\" in room 2",
+						"time": 840,
+						"duration": 30,
+						"eventStart": {
+							"date": "2026-12-01",
+							"time": 840
+						},
+						"priority": 6000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-02",
+				"day": 2,
+				"weekday": 3,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-02",
+						"file": "reminders.rem",
+						"line": 15,
+						"lineEnd": 15,
+						"body": "Gym (skipped on holidays)",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-03",
+				"day": 3,
+				"weekday": 4,
+				"omit": null,
+				"entries": []
+			},
+			{
+				"date": "2026-12-04",
+				"day": 4,
+				"weekday": 5,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-04",
+						"file": "reminders.rem",
+						"line": 24,
+						"lineEnd": 24,
+						"body": "Weekly report",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": true,
+						"completeThrough": "2026-11-06",
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-05",
+				"day": 5,
+				"weekday": 6,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-06",
+				"day": 6,
+				"weekday": 0,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-07",
+				"day": 7,
+				"weekday": 1,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-07",
+						"file": "reminders.rem",
+						"line": 12,
+						"lineEnd": 12,
+						"body": "Standup",
+						"rawBody": null,
+						"time": 600,
+						"duration": null,
+						"eventStart": {
+							"date": "2026-12-07",
+							"time": 600
+						},
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": ["work"],
+						"info": {
+							"location": "Room 1"
+						},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					},
+					{
+						"date": "2026-12-07",
+						"file": "reminders.rem",
+						"line": 19,
+						"lineEnd": 19,
+						"body": "Weekend allowed here",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-08",
+				"day": 8,
+				"weekday": 2,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-08",
+						"file": "sub/work.rem",
+						"line": 3,
+						"lineEnd": 3,
+						"body": "Sam",
+						"rawBody": "1:1 with %\"Sam%\" in room 2",
+						"time": 840,
+						"duration": 30,
+						"eventStart": {
+							"date": "2026-12-08",
+							"time": 840
+						},
+						"priority": 6000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-09",
+				"day": 9,
+				"weekday": 3,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-09",
+						"file": "reminders.rem",
+						"line": 15,
+						"lineEnd": 15,
+						"body": "Gym (skipped on holidays)",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-10",
+				"day": 10,
+				"weekday": 4,
+				"omit": null,
+				"entries": []
+			},
+			{
+				"date": "2026-12-11",
+				"day": 11,
+				"weekday": 5,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-11",
+						"file": "reminders.rem",
+						"line": 24,
+						"lineEnd": 24,
+						"body": "Weekly report",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": true,
+						"completeThrough": "2026-11-06",
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-12",
+				"day": 12,
+				"weekday": 6,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-13",
+				"day": 13,
+				"weekday": 0,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-14",
+				"day": 14,
+				"weekday": 1,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-14",
+						"file": "reminders.rem",
+						"line": 12,
+						"lineEnd": 12,
+						"body": "Standup",
+						"rawBody": null,
+						"time": 600,
+						"duration": null,
+						"eventStart": {
+							"date": "2026-12-14",
+							"time": 600
+						},
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": ["work"],
+						"info": {
+							"location": "Room 1"
+						},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-15",
+				"day": 15,
+				"weekday": 2,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-15",
+						"file": "sub/work.rem",
+						"line": 3,
+						"lineEnd": 3,
+						"body": "Sam",
+						"rawBody": "1:1 with %\"Sam%\" in room 2",
+						"time": 840,
+						"duration": 30,
+						"eventStart": {
+							"date": "2026-12-15",
+							"time": 840
+						},
+						"priority": 6000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					},
+					{
+						"date": "2026-12-15",
+						"file": "reminders.rem",
+						"line": 13,
+						"lineEnd": 13,
+						"body": "Rent (moved past days off)",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-16",
+				"day": 16,
+				"weekday": 3,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-16",
+						"file": "reminders.rem",
+						"line": 15,
+						"lineEnd": 15,
+						"body": "Gym (skipped on holidays)",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-17",
+				"day": 17,
+				"weekday": 4,
+				"omit": null,
+				"entries": []
+			},
+			{
+				"date": "2026-12-18",
+				"day": 18,
+				"weekday": 5,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-18",
+						"file": "reminders.rem",
+						"line": 24,
+						"lineEnd": 24,
+						"body": "Weekly report",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": true,
+						"completeThrough": "2026-11-06",
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-19",
+				"day": 19,
+				"weekday": 6,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-20",
+				"day": 20,
+				"weekday": 0,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-21",
+				"day": 21,
+				"weekday": 1,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-21",
+						"file": "reminders.rem",
+						"line": 12,
+						"lineEnd": 12,
+						"body": "Standup",
+						"rawBody": null,
+						"time": 600,
+						"duration": null,
+						"eventStart": {
+							"date": "2026-12-21",
+							"time": 600
+						},
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": ["work"],
+						"info": {
+							"location": "Room 1"
+						},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-22",
+				"day": 22,
+				"weekday": 2,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-22",
+						"file": "sub/work.rem",
+						"line": 3,
+						"lineEnd": 3,
+						"body": "Sam",
+						"rawBody": "1:1 with %\"Sam%\" in room 2",
+						"time": 840,
+						"duration": 30,
+						"eventStart": {
+							"date": "2026-12-22",
+							"time": 840
+						},
+						"priority": 6000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-23",
+				"day": 23,
+				"weekday": 3,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-23",
+						"file": "reminders.rem",
+						"line": 15,
+						"lineEnd": 15,
+						"body": "Gym (skipped on holidays)",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-24",
+				"day": 24,
+				"weekday": 4,
+				"omit": null,
+				"entries": [
+					{
+						"date": "2026-12-24",
+						"file": "reminders.rem",
+						"line": 14,
+						"lineEnd": 14,
+						"body": "Last working day of the month",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-25",
+				"day": 25,
+				"weekday": 5,
+				"omit": "dated",
+				"entries": [
+					{
+						"date": "2026-12-25",
+						"file": "holidays.rem",
+						"line": 3,
+						"lineEnd": 3,
+						"body": "Christmas",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					},
+					{
+						"date": "2026-12-25",
+						"file": "reminders.rem",
+						"line": 24,
+						"lineEnd": 24,
+						"body": "Weekly report",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": true,
+						"completeThrough": "2026-11-06",
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-26",
+				"day": 26,
+				"weekday": 6,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-27",
+				"day": 27,
+				"weekday": 0,
+				"omit": "weekly",
+				"entries": []
+			},
+			{
+				"date": "2026-12-28",
+				"day": 28,
+				"weekday": 1,
+				"omit": "dated",
+				"entries": [
+					{
+						"date": "2026-12-28",
+						"file": "reminders.rem",
+						"line": 12,
+						"lineEnd": 12,
+						"body": "Standup",
+						"rawBody": null,
+						"time": 600,
+						"duration": null,
+						"eventStart": {
+							"date": "2026-12-28",
+							"time": 600
+						},
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": ["work"],
+						"info": {
+							"location": "Room 1"
+						},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					},
+					{
+						"date": "2026-12-28",
+						"file": "holidays.rem",
+						"line": 4,
+						"lineEnd": 4,
+						"body": "Office closed",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-29",
+				"day": 29,
+				"weekday": 2,
+				"omit": "dated",
+				"entries": [
+					{
+						"date": "2026-12-29",
+						"file": "sub/work.rem",
+						"line": 3,
+						"lineEnd": 3,
+						"body": "Sam",
+						"rawBody": "1:1 with %\"Sam%\" in room 2",
+						"time": 840,
+						"duration": 30,
+						"eventStart": {
+							"date": "2026-12-29",
+							"time": 840
+						},
+						"priority": 6000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					},
+					{
+						"date": "2026-12-29",
+						"file": "holidays.rem",
+						"line": 4,
+						"lineEnd": 4,
+						"body": "Office closed",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-30",
+				"day": 30,
+				"weekday": 3,
+				"omit": "dated",
+				"entries": [
+					{
+						"date": "2026-12-30",
+						"file": "holidays.rem",
+						"line": 4,
+						"lineEnd": 4,
+						"body": "Office closed",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			},
+			{
+				"date": "2026-12-31",
+				"day": 31,
+				"weekday": 4,
+				"omit": "dated",
+				"entries": [
+					{
+						"date": "2026-12-31",
+						"file": "holidays.rem",
+						"line": 4,
+						"lineEnd": 4,
+						"body": "Office closed",
+						"rawBody": null,
+						"time": null,
+						"duration": null,
+						"eventStart": null,
+						"priority": 5000,
+						"isTodo": false,
+						"completeThrough": null,
+						"completed": false,
+						"tags": [],
+						"info": {},
+						"special": null,
+						"color": null,
+						"delta": null,
+						"tz": null
+					}
+				]
+			}
+		]
+	},
+	"diagnostics": [
+		{
+			"file": "reminders.rem",
+			"line": 27,
+			"message": "Ill-formed time: `25:99'",
+			"warning": false
+		}
+	]
+}

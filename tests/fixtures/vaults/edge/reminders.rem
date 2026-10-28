@@ -1,0 +1,31 @@
+# Fasti edge-case fixture for the engine golden tests.
+# Static on purpose: tests/engine/golden pins Remind's output for it.
+SET $AddBlankLines 0
+OMIT Sat Sun
+DO holidays.rem
+INCLUDE sub/work.rem
+
+REM 5 Nov 2026 AT 09:30 DURATION 1:00 \
+    MSG Long reminder \
+    spanning three lines
+
+REM Mon AT 10:00 TAG work INFO "Location: Room 1" MSG Standup
+REM 15 AFTER MSG Rent (moved past days off)
+REM 1 -1 MSG Last working day of the month
+REM Wed SKIP MSG Gym (skipped on holidays)
+
+PUSH-OMIT-CONTEXT
+CLEAR-OMIT-CONTEXT
+REM 7 SKIP MSG Weekend allowed here
+POP-OMIT-CONTEXT
+
+REM TODO 2026-11-02 COMPLETE-THROUGH 2026-11-02 MSG Done task
+REM TODO 2026-11-04 MSG Overdue task
+REM TODO Fri COMPLETE-THROUGH 2026-11-06 MSG Weekly report
+REM 10 Nov 2026 +3 MSG Heads-up %b
+REM 2026-11-12 RUN echo never runs
+REM 2026-11-13 AT 25:99 MSG Bad time
+REM Fri SATISFY [day(trigdate()) == 13] MSG Friday the 13th
+OMIT 2026-11-20 MSG Floating day off
+REM Thu 22 Nov SCANFROM -7 ADDOMIT MSG Thanksgiving
+REM 26 Nov 2026 BEFORE MSG Pie order (before Thanksgiving)
