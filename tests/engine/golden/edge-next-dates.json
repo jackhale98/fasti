@@ -1,0 +1,224 @@
+{
+	"reminders.rem:9": {
+		"dates": [
+			{
+				"date": "2026-11-05",
+				"time": 570
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"reminders.rem:12": {
+		"dates": [
+			{
+				"date": "2026-11-02",
+				"time": 600
+			},
+			{
+				"date": "2026-11-09",
+				"time": 600
+			},
+			{
+				"date": "2026-11-16",
+				"time": 600
+			},
+			{
+				"date": "2026-11-23",
+				"time": 600
+			},
+			{
+				"date": "2026-11-30",
+				"time": 600
+			},
+			{
+				"date": "2026-12-07",
+				"time": 600
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"reminders.rem:13": {
+		"dates": [
+			{
+				"date": "2026-11-16",
+				"time": null
+			},
+			{
+				"date": "2026-12-15",
+				"time": null
+			},
+			{
+				"date": "2027-01-15",
+				"time": null
+			},
+			{
+				"date": "2027-02-15",
+				"time": null
+			},
+			{
+				"date": "2027-03-15",
+				"time": null
+			},
+			{
+				"date": "2027-04-15",
+				"time": null
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"reminders.rem:15": {
+		"dates": [
+			{
+				"date": "2026-11-04",
+				"time": null
+			},
+			{
+				"date": "2026-11-18",
+				"time": null
+			},
+			{
+				"date": "2026-11-25",
+				"time": null
+			},
+			{
+				"date": "2026-12-02",
+				"time": null
+			},
+			{
+				"date": "2026-12-09",
+				"time": null
+			},
+			{
+				"date": "2026-12-16",
+				"time": null
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"reminders.rem:19": {
+		"dates": [
+			{
+				"date": "2026-11-07",
+				"time": null
+			},
+			{
+				"date": "2026-12-07",
+				"time": null
+			},
+			{
+				"date": "2027-01-07",
+				"time": null
+			},
+			{
+				"date": "2027-02-07",
+				"time": null
+			},
+			{
+				"date": "2027-03-07",
+				"time": null
+			},
+			{
+				"date": "2027-04-07",
+				"time": null
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"reminders.rem:23": {
+		"dates": [
+			{
+				"date": "2026-11-04",
+				"time": null
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"reminders.rem:27": {
+		"dates": [],
+		"reached": true,
+		"diagnostics": [
+			{
+				"file": "reminders.rem",
+				"line": 27,
+				"message": "Ill-formed time: `25:99'",
+				"warning": false
+			}
+		]
+	},
+	"reminders.rem:28": {
+		"dates": [
+			{
+				"date": "2026-11-13",
+				"time": null
+			},
+			{
+				"date": "2027-08-13",
+				"time": null
+			},
+			{
+				"date": "2028-10-13",
+				"time": null
+			},
+			{
+				"date": "2029-04-13",
+				"time": null
+			},
+			{
+				"date": "2029-07-13",
+				"time": null
+			},
+			{
+				"date": "2030-09-13",
+				"time": null
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"reminders.rem:4": {
+		"dates": [],
+		"reached": true,
+		"diagnostics": []
+	},
+	"sub/work.rem:3": {
+		"dates": [
+			{
+				"date": "2026-11-03",
+				"time": 840
+			},
+			{
+				"date": "2026-11-10",
+				"time": 840
+			},
+			{
+				"date": "2026-11-17",
+				"time": 840
+			},
+			{
+				"date": "2026-11-24",
+				"time": 840
+			},
+			{
+				"date": "2026-12-01",
+				"time": 840
+			},
+			{
+				"date": "2026-12-08",
+				"time": 840
+			}
+		],
+		"reached": true,
+		"diagnostics": []
+	},
+	"sub/more.rem:4": {
+		"dates": [],
+		"reached": false,
+		"diagnostics": []
+	}
+}

@@ -1,0 +1,3 @@
+# Reached through a relative INCLUDE (relative path in Remind's output).
+DO more.rem
+REM Tue AT 14:00 DURATION 0:30 PRIORITY 6000 MSG 1:1 with %"Sam%" in room 2

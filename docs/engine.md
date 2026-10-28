@@ -12,6 +12,12 @@ is missed:** a 3-month calendar of the 2,000-line fixture takes about
 `man/remind.1.in` and `man/rem2ps.1.in` from the tarball and by running the
 build. The tests in `tests/engine/` pin it.
 
+**Status (Phase 1 engine client):** `src/lib/engine/` runs Remind in a pool
+of module workers with a queue, cancellation, a 3 s timeout, and a cache in
+memory and IndexedDB. Results are typed. Omitted days and the next dates of
+a single line also come from Remind, through generated probe scripts (see
+[Engine client](#engine-client-srclibengine) and [Probes](#probes)).
+
 ## Build
 
 `engine/build.sh` builds `static/engine/remind.mjs` and `remind.wasm` from
@@ -55,7 +61,8 @@ non-reproducible build.
 
 ## Running Remind (contract for `src/lib/engine/worker.ts`)
 
-`tests/engine/remind.ts` does exactly this under Node. Copy it.
+`src/lib/engine/run.ts` implements this for the worker. `tests/engine/remind.ts`
+is the spike's copy for the low-level tests.
 
 1. Compile `remind.wasm` once. For each run, call `createRemind({ instantiateWasm })`
    with a fresh `WebAssembly.instantiate(module, imports)`. Remind keeps
@@ -105,6 +112,21 @@ Notes:
 - With `-r`, `RUN` reminders are left out of calendars and report
   `file(line): RUN disabled` in agenda mode. `shell()` reports
   `shell(): RUN disabled` and `INCLUDECMD` reports `RUN disabled`.
+  An agenda for a date other than the real today doesn't report it: the
+  `RUN` reminder is silently left out (the edge fixture's line 26).
+- A diagnostic can continue on indented lines (call frames, such as
+  `    /vault/m.rem(1): [#0] In function `f'`). The parser adds them to the
+  message before them.
+- Agenda entries carry `eventduration` but not always `duration`. The parser
+  falls back to `eventduration`.
+- Remind guards against runaway scripts itself: `SATISFY [0]` stops with
+  "Can't compute trigger", and deep recursion with "Maximum expression
+  complexity exceeded". A SATISFY whose expression is slow on each day it
+  tries still runs for minutes, though. For example,
+  `REM SATISFY [nonomitted(trigdate(), trigdate() + 1000000) < 0]` took
+  145 s under Node. The client's 3 s timeout handles that.
+  `--max-execution-time` isn't an option here. It forks a watchdog process
+  (`init.c`), and Emscripten's `fork` stub fails.
 
 ### Agenda JSON
 
@@ -126,7 +148,7 @@ warning shows the future or overdue date, and `body` is fully substituted.
 
 An array of month descriptors (rem2ps(1), PURE JSON INPUT FORMAT):
 `caltype` (`"monthly"`), `monthname`, `year`, `daysinmonth`, `firstwkday`
-(0 = Sunday), `mondayfirst`, `daynames`, `prevmonthname`, `daysinprevmonth`,
+(0 = Sunday), `mondayfirst`, `daynames` (Sunday first even with `-m`), `prevmonthname`, `daysinprevmonth`,
 `prevmonthyear`, `nextmonthname`, `daysinnextmonth`, `nextmonthyear`,
 `translations` (first month only) and `entries`. Entry keys are rem2ps(1)
 CALENDAR ENTRIES: always `date`, `filename`, `lineno`, `priority`, `body`
@@ -161,6 +183,146 @@ or ambiguous; tests pin the real behaviour):
   Without the `q` flag, `body` is the text between the markers and
   `rawbody` is the full source. This matches remind(1): "If you include a
   q letter … the %"…%" sequences are preserved".
+
+## Engine client (`src/lib/engine/`)
+
+| File | Role |
+| --- | --- |
+| `types.ts` | `VaultSnapshot` (the store contract) and the typed results |
+| `client.ts` | App API: worker pool, queue, cancellation, timeout, cache, `debounce` |
+| `worker.ts` | Module worker. Compiles `remind.wasm` once on `init` and runs each request in a fresh instance |
+| `ops.ts` | One function per request: builds the command line, runs it, parses the output |
+| `run.ts` | One Remind run (the contract above) |
+| `probes.ts` | Generated scripts: the calendar wrapper and the line probe |
+| `parse-json.ts` | Agenda and `-ppp` JSON, probe output and stderr into types |
+| `cache.ts` | Cache keys, memory LRU, IndexedDB store (idb) |
+| `protocol.ts` | Client–worker messages |
+
+Public API. Each function takes an optional `{ view, signal, priority }`
+last argument. Every date in a result comes from Remind.
+
+```ts
+agenda(vault, { date?, time?, tz? }): Promise<AgendaResult>
+calendar(vault, { month: 'YYYY-MM', months?, mondayFirst?, hideCompletedTodos?, tz? },
+         { onMonth?(month, index) }): Promise<CalendarResult>
+nextDates(vault, { file, line, count? = 6, from?, tz? }): Promise<NextDatesResult>
+preview(vault, { file, line, newText, count?, from?, tz? }): Promise<PreviewResult>
+diagnostics(vault, { date?, tz? }): Promise<Diagnostic[]>
+now(tz?): Promise<{ date, time }>          // Remind's today() and now()
+debounce(fn, ms = 120)                     // with cancel() and flush()
+new EngineClient({ createWorker?, source?, poolSize?, timeoutMs?, cache? })
+```
+
+- **Pool.** `hardwareConcurrency − 1` workers, clamped to 2–4, spawned on
+  demand. Each worker gets one request at a time.
+- **Queue.** Highest priority first, then first come. Interactive requests
+  and a calendar's first month get priority 2, later months 1. A request
+  with the same `view` as an earlier one supersedes it. If the earlier one
+  is still queued, it is dropped. If it is running, its result is cached
+  but not delivered. Either way its promise rejects with `EngineAbortError`
+  (`name: 'AbortError'`). An aborted `signal` does the same. Identical
+  requests that are in flight together share one run.
+- **Timeout.** After 3 s the worker is terminated and the request rejects
+  with `EngineTimeoutError`. Its message names the main file (or, for
+  `nextDates` and `preview`, the line's file) and suggests a SATISFY or an
+  expression that never finishes. The next request spawns a fresh worker.
+  A worker never respawns in a loop, even one that can't load.
+- **Cache.** The key is the engine build (`remindWasmSha256` from
+  `engine/BUILD-INFO.json`) and format version, the vault hash, the main
+  entry, and the request in sorted-key JSON with defaults dropped. Results
+  are kept in a 300-entry in-memory LRU and in IndexedDB
+  (`fasti-engine-cache`, at most 1,000 rows, oldest evicted). Requests that
+  depend on the clock are never cached: an agenda or diagnostics without
+  `date`, `nextDates` or `preview` without `from`, and `now`.
+- **Calendar.** One `-ppp1` run per month, so the visible month needs only
+  one run. `addMonths` steps the `YYYY-MM` labels of the requested months.
+  Every day and date inside a month comes from Remind.
+- **Paths.** Results use vault-relative paths. `parse-json.ts` resolves
+  absolute `/vault/...` paths (the main file and `DO` targets) and relative
+  `INCLUDE` paths (relative to `/vault`), including `.` and `..`. Anything
+  outside the vault becomes `null` in diagnostics and is dropped from
+  entries.
+- **Diagnostics.** Each line `file(line): message` becomes
+  `{ file, line, message, warning }`. Indented lines are added to the
+  message before them. Duplicates are removed.
+- **Completed TODOs.** `completed` is a string comparison of the entry's
+  `date` with `complete_through`, two dates Remind printed.
+- **Worker in Node.** Engine imports use `.ts` extensions, so Node 22.18+
+  can load `worker.ts` in a worker thread (`tests/engine/node-worker.mjs`).
+  The client tests run against real workers that way.
+
+## Probes
+
+Fasti asks Remind for things its normal output doesn't include by
+generating small Remind scripts. They live in MEMFS under `/fasti/`,
+outside the vault, or in a scratch copy of one vault file inside a single
+run. The user's files are never changed. Each probe reports through output
+that the parser filters out: a SPECIAL entry with a `/fasti/` filename, or
+stderr lines starting with `FASTI-PROBE`.
+
+### Omitted days (calendar wrapper)
+
+A calendar month runs `/fasti/calendar.rem` instead of the main file:
+
+```
+DO /vault/<main>
+FSET __fasti_weekly(x) choose(wkdaynum(x) + 1, catch(slide(x, 1, "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"), 0), …) == 0
+REM PRIORITY 0 SPECIAL FASTI-DAY [wkdaynum(today())] [iif(isomitted(today()), iif(__fasti_weekly(today()), "weekly", "dated"), "-")]
+```
+
+- In calendar mode Remind reruns the whole script for each day, with
+  `today()` set to that day (remind(1), `today()`). The dateless REM
+  therefore triggers on every day, after the main entry has finished. It is
+  evaluated in the OMIT context in force at the end of the main file, which
+  includes `PUSH`/`POP`/`CLEAR-OMIT-CONTEXT` and `ADDOMIT` from earlier
+  lines. The parser builds `CalendarMonth.days` from these entries: date,
+  weekday and omit kind, all from Remind.
+- `isomitted()` (remind(1)) says whether a day is globally omitted, but not
+  why. remind(1) has no function that lists the weekday OMITs. Instead,
+  `slide()` reports an error when the global weekday OMITs plus its local
+  weekday arguments cover the whole week (`funcs.c`: `(WeekdayOmits |
+  localomit) == 0x7F`). So `slide(x, 1, <the six other weekdays>)` fails
+  exactly when x's own weekday is a weekly OMIT, and `catch()` (remind(1))
+  turns that error into 0. This test is exact: it never samples dates.
+- A dated holiday on a weekly day off reports `weekly`. The OMIT context
+  can't tell both apart, but a holiday with `MSG` still shows as an entry.
+- `DO` takes the main entry by absolute path, as a file or a directory.
+  Relative `INCLUDE`s still resolve against `/vault`. The filenames in
+  entries and diagnostics are unchanged.
+- Limits: a main file that runs `EXIT` stops the wrapper too, so that
+  month has no days. A user function named `__fasti_weekly` defined in the
+  vault is overridden.
+
+### Line probe
+
+`nextDates` and `preview` run Remind in agenda mode once per date, on a
+copy of the line's file in which the logical line (`\` continuations
+joined, as in `files.c`) is wrapped:
+
+```
+REM 1990-01-01 *1 UNTIL 1990-01-01 SPECIAL FASTI-PROBE-RESET   # trigvalid() = 0, silently
+<the line, or the preview's newText>
+SET $DateSep "-"
+SET $TimeSep ":"
+ERRMSG FASTI-PROBE [trigvalid()] [trigdate()] [trigtime()] [trigdate() + 1]
+EXIT 0
+```
+
+- The reset line is there so that a line that isn't a REM, or fails, can't
+  report the previous REM's trigger. Without the `*1`, Remind warns
+  "Useless use of UNTIL".
+- The first run uses `from` (or Remind's today) as the date. Each later run
+  uses the day after the last trigger, `trigdate() + 1`, computed by Remind.
+  This is exact: Remind sees a real "today" each time, so back, delta,
+  SKIP, OMIT, SATISFY, UNTIL and TZ all behave as they do for real. The
+  loop stops at `count` dates, at an invalid trigger, or when the date
+  stops moving forward (an overdue TODO keeps its date).
+- `EXIT` stops each run at the line, so later lines cost nothing. If the
+  probe never prints, the line was never reached (`reached: false`): no
+  file includes it, it sits in a false IF branch, or it comes after
+  `__EOF__`.
+- The diagnostics are the line's own, mapped back to the original line
+  numbers (the reset line shifts them by one).
 
 ## Time zones
 
@@ -207,10 +369,30 @@ whole script once per calendar day, so cost is roughly lines × days, about
 6–8 ms per 1,000 lines per day at ×4. A one-day agenda costs about 7 ms
 natively.
 
-Options (not decided here): render the visible month first and fill the rest
-in, with each month in its own parallel worker; cache results per (vault
-hash, range), as the plan's risk list suggests; make the agenda the first
-paint; or re-scope the budget (for example "first month under 500 ms at ×4").
+The owner re-scoped the budget (docs/PLAN.md 3.2). The agenda paints first,
+the visible month is a single run, other months fill in from the worker
+pool, and results are cached per vault hash.
+
+Engine client timings (`tests/engine/perf.test.ts`, Node, one thread, ×1,
+medians, 2,000-line fixture, Phase 1):
+
+| Request | Time |
+| --- | --- |
+| Agenda, one day | 25–28 ms |
+| One calendar month (`-ppp1` plus the omit probe) | 85–87 ms |
+| `nextDates`, 6 dates, yearly line in the 2nd file | 40–51 ms |
+| `nextDates`, 6 dates, weekly line in the last file | 126 ms |
+| `preview`, 6 dates, line in the last file | 87–102 ms |
+
+`nextDates` and `preview` cost about one agenda run per date (see
+[Line probe](#line-probe)), or less, because each run stops at the line.
+Expect about 4× these times at ×4 throttling, which keeps them within the
+visible month's 500 ms. The omit probe adds no measurable time to a month:
+October still has the spike's 1,967 entries in 85 ms. A cache hit returns
+without running Remind. In Chromium (Vite dev server, 4-line vault), the first
+agenda took 614 ms, including spawning the worker and compiling the module.
+After that, a 3-month calendar took 88 ms, `nextDates` 25 ms, and a repeated
+calendar 0 ms.
 
 ## Spike checklist
 
@@ -234,6 +416,10 @@ paint; or re-scope the budget (for example "first month under 500 ms at ×4").
 ## Known limitations
 
 - Performance on big vaults (above).
+- `nextDates` and `preview` give dates and times but no bodies. The line
+  probe can't read a REM's substituted body.
+- The client has been run in Chromium only under the Vite dev server, by
+  hand. No Playwright spec covers it yet, because no page uses it.
 - `TZ` names Intl doesn't know are read as a POSIX `STDoffset` string with
   any DST rule ignored (`!EST+5EDT,M3.2.0/2,M11.1.0/2` acts as fixed UTC−5).
   Anything else is UTC.

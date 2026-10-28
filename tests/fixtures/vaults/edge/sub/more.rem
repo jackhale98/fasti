@@ -1,0 +1,4 @@
+# DO from an INCLUDEd file: joined to sub/.
+REM 3 Nov 2026 MSG Nested DO
+__EOF__
+REM 4 Nov 2026 MSG After the end marker: never read
