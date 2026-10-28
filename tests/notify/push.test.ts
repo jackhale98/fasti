@@ -7,8 +7,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fromBase64Url, messageKeys, toBase64Url } from '../../src/lib/notify/encrypt';
 import {
+	HORIZON_MS,
+	MAX_PLAINTEXT,
 	deleteSchedule,
+	fitPayload,
+	pushOnOpen,
 	sealAll,
+	uploadHorizon,
+	withTest,
 	serverKey,
 	uploadSchedule,
 	type SubscriptionKeys
@@ -124,6 +130,87 @@ describe('push protocol', () => {
 		await expect(sealAll({ endpoint: sub.endpoint }, [])).rejects.toThrow('no encryption keys');
 	});
 
+	it('shortens an oversize payload on a character boundary, and still uploads it', async () => {
+		const long = { id: 'a', title: 'T', body: '😀é'.repeat(3000), url: '' };
+		const fitted = fitPayload(long);
+		const bytes = new TextEncoder().encode(JSON.stringify(fitted)).length;
+		expect(bytes).toBeLessThanOrEqual(MAX_PLAINTEXT);
+		expect(bytes).toBeGreaterThan(MAX_PLAINTEXT - 16);
+		expect(fitted.body.endsWith('…')).toBe(true);
+		// No lone surrogate: every character survives a UTF-8 round trip.
+		expect(new TextDecoder().decode(new TextEncoder().encode(fitted.body))).toBe(fitted.body);
+		expect(fitted.title).toBe('T');
+		// A long title is cut once the body is gone.
+		const both = fitPayload({ id: 'b', title: 'x'.repeat(5000), body: 'y'.repeat(5000), url: '' });
+		expect(both.body).toBe('…');
+		expect(both.title.endsWith('…')).toBe(true);
+		expect(new TextEncoder().encode(JSON.stringify(both)).length).toBeLessThanOrEqual(
+			MAX_PLAINTEXT
+		);
+		// Small payloads are untouched.
+		const small = { id: 'c', title: 'Dentist', body: 'b', url: '' };
+		expect(fitPayload(small)).toBe(small);
+
+		// One 5,000-character reminder doesn't fail the list.
+		const { sub, keys, p256dh, auth } = await browserSubscription();
+		let body: { reminders: { at: number; payload: string }[] } | null = null;
+		await uploadSchedule(
+			'https://w.example',
+			sub,
+			[
+				{ at: 1, payload: { id: 'big', title: 'z'.repeat(5000), body: '', url: '' } },
+				{ at: 2, payload: small }
+			],
+			async (_u, init) => {
+				body = JSON.parse(init!.body as string);
+				return new Response(null, { status: 204 });
+			}
+		);
+		expect(body!.reminders).toHaveLength(2);
+		for (const r of body!.reminders) expect(r.payload.length).toBeLessThanOrEqual(5462);
+		const opened = (await open(body!.reminders[0]!.payload, keys, p256dh, auth)) as {
+			title: string;
+		};
+		expect(opened.title.startsWith('zzz')).toBe(true);
+		expect(opened.title.endsWith('…')).toBe(true);
+		expect(await open(body!.reminders[1]!.payload, keys, p256dh, auth)).toEqual(small);
+	});
+
+	it('keeps a test message out of the real 64', () => {
+		const real = Array.from({ length: 64 }, (_, i) => ({
+			at: 100 + i,
+			payload: { id: String(i), title: 't', body: '', url: '' }
+		}));
+		const test = { at: 1, payload: { id: 'test', title: 'Test', body: '', url: '' } };
+		const list = withTest(real, test);
+		expect(list).toHaveLength(64);
+		expect(list[0]).toBe(test);
+		expect(list.slice(1)).toEqual(real.slice(0, 63));
+		expect(withTest(real.slice(0, 3), test)).toHaveLength(4);
+	});
+
+	it('keeps an hour’s margin before the worker’s 8-day horizon (a fast device clock)', () => {
+		const now = 1_800_000_000_000;
+		expect(uploadHorizon(now)).toBe(now + HORIZON_MS - 3_600_000);
+	});
+
+	it('retries subscribing on every open while turned on with nothing stored', () => {
+		const base = {
+			configured: true,
+			supported: true,
+			enabled: true,
+			permission: 'granted' as const,
+			stored: false
+		};
+		expect(pushOnOpen(base)).toBe('subscribe');
+		expect(pushOnOpen({ ...base, enabled: false })).toBe('none');
+		expect(pushOnOpen({ ...base, permission: 'default' })).toBe('none');
+		expect(pushOnOpen({ ...base, stored: true })).toBe('refresh');
+		expect(pushOnOpen({ ...base, stored: true, permission: 'denied' })).toBe('drop');
+		expect(pushOnOpen({ ...base, configured: false })).toBe('none');
+		expect(pushOnOpen({ ...base, supported: false, stored: true })).toBe('none');
+	});
+
 	it('DELETEs the list, ignoring a network failure', async () => {
 		const fetchFn = vi.fn(async () => new Response(null, { status: 204 }));
 		await deleteSchedule('https://w.example', 'https://fcm.googleapis.com/x', fetchFn);
@@ -139,7 +226,13 @@ describe('push protocol', () => {
 });
 
 describe('service worker handlers', () => {
-	function fakeScope(windows: { url: string; focus: () => Promise<unknown> }[] = []) {
+	function fakeScope(
+		windows: {
+			url: string;
+			focus: () => Promise<unknown>;
+			navigate?: (url: string) => Promise<unknown>;
+		}[] = []
+	) {
 		const listeners = new Map<string, (event: Event) => void>();
 		const shown: { title: string; options: NotificationOptions }[] = [];
 		const opened: string[] = [];
@@ -197,12 +290,26 @@ describe('service worker handlers', () => {
 
 	it('focuses an open Fasti window on click, or opens one', async () => {
 		const focus = vi.fn(async () => undefined);
-		const withWindow = fakeScope([{ url: 'https://fasti.example/app/month', focus }]);
+		const navigate = vi.fn(async () => undefined);
+		const withWindow = fakeScope([{ url: 'https://fasti.example/app/month', focus, navigate }]);
 		const notification = { close: vi.fn(), data: { url: 'https://fasti.example/app/' } };
 		await withWindow.fire('notificationclick', { notification });
 		expect(notification.close).toHaveBeenCalled();
+		// The open window goes to the notification's page, then comes forward.
+		expect(navigate).toHaveBeenCalledWith('https://fasti.example/app/');
 		expect(focus).toHaveBeenCalled();
 		expect(withWindow.opened).toEqual([]);
+
+		// A window that can't navigate (uncontrolled) is still focused.
+		const failing = vi.fn(async () => {
+			throw new TypeError('not controlled');
+		});
+		const focus2 = vi.fn(async () => undefined);
+		const stuck = fakeScope([
+			{ url: 'https://fasti.example/app/month', focus: focus2, navigate: failing }
+		]);
+		await stuck.fire('notificationclick', { notification });
+		expect(focus2).toHaveBeenCalled();
 
 		const none = fakeScope([{ url: 'https://other.example/', focus }]);
 		await none.fire('notificationclick', {
