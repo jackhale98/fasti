@@ -82,6 +82,19 @@ function shippedPackages(): Plugin {
 	};
 }
 
+/** The origin of PUBLIC_WORKER_URL, for the CSP's connect-src, or nothing when unset. */
+function workerOrigin(): `https://${string}.${string}`[] {
+	const url = process.env.PUBLIC_WORKER_URL?.trim();
+	if (!url) return [];
+	try {
+		const { origin, protocol } = new URL(url);
+		if (protocol !== 'https:') throw new Error(`PUBLIC_WORKER_URL must be https: ${url}`);
+		return [origin as `https://${string}.${string}`];
+	} catch {
+		throw new Error(`PUBLIC_WORKER_URL is not a URL: ${url}`);
+	}
+}
+
 /** The commit being built (About), or '' outside a git checkout. */
 function commit(): string {
 	try {
@@ -126,8 +139,9 @@ export default defineConfig({
 					'style-src': ['self', 'unsafe-inline'],
 					'img-src': ['self', 'data:', 'blob:'],
 					'font-src': ['self'],
-					// Narrowed to Fasti's worker and the configured providers in Phase 4.
-					'connect-src': ['self'],
+					// Fasti's worker (push, and the sync proxy later) when it is configured;
+					// the sync providers are added in Phase 4.
+					'connect-src': ['self', ...workerOrigin()],
 					'worker-src': ['self'],
 					'manifest-src': ['self'],
 					'object-src': ['none'],
@@ -160,6 +174,6 @@ export default defineConfig({
 	},
 	test: {
 		environment: 'node',
-		include: ['src/**/*.test.ts', 'tests/{unit,lens,engine,store,export}/**/*.test.ts']
+		include: ['src/**/*.test.ts', 'tests/{unit,lens,engine,store,export,notify}/**/*.test.ts']
 	}
 });
