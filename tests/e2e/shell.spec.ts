@@ -2,8 +2,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-const VIEWS = [
-	{ path: '/', heading: 'Fasti' },
+const VIEWS: { path: string; heading: string | RegExp }[] = [
+	// Today's heading is the weekday.
+	{ path: '/', heading: /^(Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)day$/ },
 	{ path: '/month', heading: 'Month' },
 	{ path: '/script', heading: 'Script' },
 	{ path: '/sync', heading: 'Your files' },
