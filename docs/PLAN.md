@@ -161,6 +161,15 @@ Copy from Mycelium `src/lib/git/*`, `src/lib/sync/*` and their tests, then adapt
 - While closed: reuse Mycelium's push design. Settings → Notifications subscribes the device. On each sync or app open, Fasti sends the next 8 days of `AT` reminders (at most 64), each encrypted on the device (RFC 8291) for that device. The worker's Durable Object stores only times and sealed messages and fires them with VAPID.
 - iOS only allows Web Push for installed home-screen apps. Explain this in Settings with install steps.
 
+### 3.6a Calendar export (ICS)
+
+- **v1: download.** Settings → Export builds an iCalendar file (RFC 5545) in the browser and saves it. The events come from the engine's calendar output (`-ppp` over the chosen range, default 12 months), never from the lens. Each occurrence is its own `VEVENT`, with no `RRULE`: Remind's OMIT, SKIP, BEFORE, AFTER and expressions don't map onto RRULE faithfully. A timed reminder (`AT`, `DURATION`) becomes a timed event in the device's time zone; others are all-day. `UID`s are stable (file, line text hash and date), so re-importing into a calendar that honours UIDs updates instead of duplicating. Options: date range, which files, include TODOs. `RUN` reminders are listed as plain events, never run.
+- **Follow-up (after v1): subscription feed.** Calendar apps subscribe from their own servers, so a feed needs a permanent per-person URL; a static site can't serve one. Two opt-in designs, both with the trade-off explained in Settings:
+  1. *Worker feed* (preferred): on each sync or app open, Fasti uploads the next few months as ICS to Fasti's worker, which serves it at an unguessable, revocable URL (`webcal://…/ics/<token>.ics`). Fresh only as of the last app open. Unlike push messages, the worker holds readable reminder text, because calendar servers need it.
+  2. *Own storage*: Fasti writes `fasti.ics` into the person's git repo, Dropbox or Nextcloud and they subscribe to its public link. No Fasti server holds data, but it needs a public link (a private GitHub repo's raw URL won't work).
+  - Not planned: the worker fetching `.rem` files and running Remind on a schedule, since OAuth tokens would have to live on the server (section 10).
+  - Google Calendar refreshes subscriptions slowly (often 12–24 hours); say so in Settings.
+
 ### 3.7 PWA and hosting
 
 - Service worker (Tessera's approach): precache the app shell and `remind.wasm`; network-first for nothing else; works fully offline after the first visit.
@@ -180,7 +189,7 @@ Use the prototype as the visual and interaction reference, renamed to Fasti.
 - **Month:** 6-week grid with Sunday or Monday start (setting, maps to `-m`). Weekly days off are tinted; dated holidays are hatched. Selected-day list below the grid. Labels on wide screens, dots on phones. Completed TODO occurrences struck through. Optional Week view later.
 - **Script:** CodeMirror editor per file with file tabs, syntax colours, diagnostics, a key strip for common tokens on phones and the line inspector (plain-language explanation plus the line's next dates from the engine).
 - **Sync:** connected source, changed files with diffs, commit and push controls, other providers, how sync works, engine and licence information with a **Source** link (GPL requirement).
-- **Settings:** main entry, week start, 12- or 24-hour times, hide completed TODOs, notifications, theme, reset local data.
+- **Settings:** main entry, week start, 12- or 24-hour times, hide completed TODOs, notifications, calendar export (ICS download, section 3.6a), theme, reset local data.
 - **Inspector** (right panel on desktop, bottom sheet on phones): title with substitutions applied, due or next date, chips (time, duration, `INFO` values, tags), Mark done, explanation, next 6 dates, the source line as an editable field with live preview and Save, Show in script, Delete with undo.
 - **Quick add** (FAB on phones, button and `n` key on desktop): one plain-language field, the resulting REM line shown with syntax colours, explanation and next dates from the engine, an Adjust panel (message, repeat pattern, time, duration, heads-up days, count days off, behaviour on days off, end date, task, countdown `%b`) and a target-file picker. Typing a line that starts with `REM` or `OMIT` switches to raw mode.
 
@@ -276,6 +285,8 @@ Parallel, each in its own worktree:
 - `sync-porter` or lead: local timers, push subscription, encryption and upload of the next 8 days (reuse Mycelium's code), Settings UI, iOS guidance.
 - **Exit:** push delivered in a manual test on Android Chrome and an installed iOS PWA; unit tests for the schedule.
 
+- Also in Phase 5: ICS download (section 3.6a), writer in `src/lib/export/ics.ts`, with its Settings UI and tests.
+
 ### Phase 6: PWA, performance, docs, deploy
 
 - Lead: service worker and manifest; Lighthouse CI (mobile and desktop) with budgets from Tessera.
@@ -296,6 +307,7 @@ Parallel, each in its own worktree:
 - **Lens:** unit tests for tokenizer roles, continuation offset mapping, explanations, quick-add phrases (port the prototype's 15 sample phrases with expected REM lines), patches. Property test: random edits then inverse patches restore identical bytes; a no-op patch never changes bytes.
 - **Agreement check:** for every quick-add output, the engine must accept the line with no diagnostics.
 - **E2E (Playwright):** phone (390×844) and desktop (1366×860), light and dark, axe on every view; flows for mark done, undo, quick add, edit line, editor diagnostics, offline reload, sync with a mocked provider.
+- **ICS export:** unit tests for the writer (line folding at 75 octets, escaping, all-day vs timed, stable UIDs), golden `.ics` for a fixture vault, and the output validated by a parser.
 - **Performance:** engine timing on the large fixture vault in CI.
 
 ---
@@ -307,6 +319,7 @@ Parallel, each in its own worktree:
 - Edits are byte-exact; undo works for every edit.
 - GitHub, any git host, Dropbox, OneDrive and WebDAV sync, with diffs, conflict handling and no silent overwrites.
 - Push reminders for `AT` times while the app is closed.
+- Calendar export as an `.ics` download.
 - Installs as a PWA and works offline.
 - Deployed to GitHub Pages from CI; worker deployable from its own workflow.
 - Licence, source link, notices, AI disclosure and not-affiliated statement in place.
@@ -396,6 +409,7 @@ Keep this section current. One line per completed item, newest last.
 - Remind may need small build patches for Emscripten. These stay in this repo.
 - `TZ` support depends on Emscripten's time zone handling (spike item).
 - iOS push requires the app to be installed to the home screen.
+- ICS subscription feed (section 3.6a) is a follow-up after v1; choose between the worker feed and own-storage designs then.
 - Very large vaults: if engine runs exceed budget, cache results per file hash and range.
 
 ---
