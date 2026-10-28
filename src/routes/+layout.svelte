@@ -14,6 +14,7 @@
 	import Inspector from '#lib/ui/inspector/Inspector.svelte';
 	import QuickAdd from '#lib/ui/quickadd/QuickAdd.svelte';
 	import { app } from '#lib/app/app.svelte.ts';
+	import { notifications } from '#lib/notify/notifications.svelte.ts';
 	import { shell } from '#lib/ui/shell.svelte.ts';
 	import { theme } from '#lib/ui/theme.svelte.ts';
 
@@ -35,6 +36,7 @@
 	onMount(() => {
 		theme.init();
 		void app.start();
+		notifications.start();
 		const mq = matchMedia(desktopQuery);
 		desktop = mq.matches;
 		const change = () => (desktop = mq.matches);
