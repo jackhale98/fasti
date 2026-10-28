@@ -148,7 +148,9 @@
 	let check = $state<Check | null>(null);
 	const key = $derived(`${file}\u0000${line}\u0000${app.snapshot?.hash ?? ''}`);
 	const current = $derived(check?.key === key ? check : null);
-	const computing = $derived(!!line && !!app.snapshot && !!file && !current);
+	// A result for older text stays on screen, marked as updating, until the new one lands.
+	const stale = $derived(!!line && !!check && !current);
+	const shownDiagnostics = $derived(check?.result?.diagnostics ?? []);
 
 	function fnv(s: string): string {
 		let h = 0x811c9dc5;
@@ -289,7 +291,7 @@
 		{/if}
 	</p>
 
-	<div class="result" aria-live="polite">
+	<div class="result" aria-live="polite" aria-busy={stale}>
 		{#if line}
 			<pre
 				class="remline"
@@ -297,50 +299,63 @@
 				aria-label="The REM line">{#each parts as part, i (i)}<span class={roleClass(part.role)}
 						>{part.text}</span
 					>{/each}</pre>
-			{#if refused.length}
-				<p class="problem" data-testid="refused">
-					{#each refused as r, i (r)}{i ? ' ' : ''}I couldn't read '{r}' as a date.{/each}
-					Fix it above, or pick a date under Adjust.
-				</p>
-			{/if}
 			<ul class="explain">
 				{#each explanation as sentence, i (i)}<li>{sentence}</li>{/each}
 			</ul>
-			{#if needsMessage}
-				<p class="note">Add a message to finish.</p>
-			{/if}
-			{#if computing}
-				<p class="note" data-testid="computing">Computing…</p>
-			{:else if current?.error}
-				<p class="problem">Remind couldn't check this line: {current.error}</p>
-			{:else if current?.result}
-				{#if diagnostics.length}
-					<ul class="problems" data-testid="diagnostics">
-						{#each diagnostics as d, i (i)}
-							<li class="problem">{d.message}</li>
-						{/each}
-					</ul>
-				{:else if !current.result.reached}
-					<p class="note">Remind doesn't reach the end of {file}, so this line would never run.</p>
-				{:else}
-					<div data-testid="nextdates">
-						<h3 class="eyebrow">Next dates</h3>
-						{#if current.result.dates.length}
-							<ul class="dates">
-								{#each current.result.dates as occurrence, i (occurrence.date + occurrence.time)}
-									<li class:first={i === 0}>
-										{longDate(occurrence.date)}{occurrence.time != null
-											? ` · ${fmtTime(occurrence.time, app.settings.clock)}`
-											: ''}
-									</li>
-								{/each}
-							</ul>
-						{:else}
-							<p class="note">Remind finds no upcoming date for this line.</p>
-						{/if}
-					</div>
+			<!-- One reserved line for the notes, so a message appearing never shifts what follows. -->
+			<div class="notes">
+				{#if refused.length}
+					<p class="problem" data-testid="refused">
+						{#each refused as r, i (r)}{i ? ' ' : ''}I couldn't read '{r}' as a date.{/each}
+						Fix it above, or pick a date under Adjust.
+					</p>
+				{:else if needsMessage}
+					<p class="note">Add a message to finish.</p>
 				{/if}
-			{/if}
+			</div>
+			<!-- The previous result stays up (dimmed) while the engine works on the new text. -->
+			<div class="check" class:stale data-testid="check" data-stale={stale}>
+				{#if !check}
+					<div class="nextdates" data-testid="nextdates-placeholder">
+						<div class="ndhead"><h3 class="eyebrow">Next dates</h3></div>
+						<p class="note">Asking Remind…</p>
+					</div>
+				{:else if check.error}
+					<p class="problem">Remind couldn't check this line: {check.error}</p>
+				{:else if check.result}
+					{#if shownDiagnostics.length}
+						<ul class="problems" data-testid="diagnostics">
+							{#each shownDiagnostics as d, i (i)}
+								<li class="problem">{d.message}</li>
+							{/each}
+						</ul>
+					{:else if !check.result.reached}
+						<p class="note">
+							Remind doesn't reach the end of {file}, so this line would never run.
+						</p>
+					{:else}
+						<div class="nextdates" data-testid="nextdates">
+							<div class="ndhead">
+								<h3 class="eyebrow">Next dates</h3>
+								<span class="upd" class:on={stale} data-testid="updating">Updating…</span>
+							</div>
+							{#if check.result.dates.length}
+								<ul class="dates">
+									{#each check.result.dates as occurrence, i (occurrence.date + occurrence.time)}
+										<li class:first={i === 0}>
+											{longDate(occurrence.date)}{occurrence.time != null
+												? ` · ${fmtTime(occurrence.time, app.settings.clock)}`
+												: ''}
+										</li>
+									{/each}
+								</ul>
+							{:else}
+								<p class="note">Remind finds no upcoming date for this line.</p>
+							{/if}
+						</div>
+					{/if}
+				{/if}
+			</div>
 		{:else}
 			<p class="note">The REM line and its next dates appear here.</p>
 		{/if}
@@ -581,6 +596,9 @@
 				</div>
 			</div>
 		</details>
+	{:else if raw}
+		<!-- Same height as the Adjust toggle, so typing "REM" doesn't move the footer's neighbours. -->
+		<div class="tune off">Adjust is off while you write the line yourself.</div>
 	{/if}
 
 	<div class="foot">
@@ -594,9 +612,13 @@
 
 <style>
 	.qa {
-		display: grid;
+		--pad-x: max(18px, env(safe-area-inset-right, 0px));
+		--pad-b: calc(24px + env(safe-area-inset-bottom, 0px));
+		display: flex;
+		flex-direction: column;
 		gap: 10px;
 		min-width: 0;
+		min-height: min(520px, 62dvh);
 	}
 	.field {
 		width: 100%;
@@ -618,8 +640,40 @@
 	}
 	.result {
 		display: grid;
+		align-content: start;
 		gap: 8px;
 		min-width: 0;
+		min-height: 230px;
+	}
+	.notes {
+		min-height: 20px;
+	}
+	.check {
+		transition: opacity 0.12s;
+	}
+	.check.stale {
+		opacity: 0.55;
+	}
+	.nextdates {
+		min-height: 92px;
+	}
+	.ndhead {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 8px;
+		margin-bottom: 6px;
+	}
+	.ndhead .eyebrow {
+		margin: 0;
+	}
+	.upd {
+		font-size: 12px;
+		color: var(--ink-2);
+		visibility: hidden;
+	}
+	.upd.on {
+		visibility: visible;
 	}
 	.remline {
 		margin: 0;
@@ -723,6 +777,12 @@
 		border-top: 1px solid var(--rule);
 		padding-top: 12px;
 	}
+	.tune.off {
+		min-height: 48px;
+		box-sizing: border-box;
+		font-size: 13px;
+		color: var(--ink-2);
+	}
 	.tune summary {
 		font-weight: 700;
 		font-size: 14px;
@@ -820,12 +880,27 @@
 		color: var(--ledger-ink);
 		border-color: var(--ledger);
 	}
+	/* Pinned to the bottom of the sheet's scrolling content; it extends through the
+	   sheet's own bottom padding so it sits at the same place scrolled or not. */
 	.foot {
+		position: sticky;
+		bottom: 0;
+		z-index: 1;
+		margin-top: auto;
+		margin-inline: calc(-1 * var(--pad-x));
+		margin-bottom: calc(-1 * var(--pad-b));
+		padding: 12px var(--pad-x) var(--pad-b);
+		background: var(--surface);
 		display: flex;
 		gap: 8px;
 		align-items: center;
 		border-top: 1px solid var(--rule);
-		padding-top: 12px;
+	}
+	@media (min-width: 960px) {
+		.qa {
+			--pad-x: 24px;
+			--pad-b: 24px;
+		}
 	}
 	.foot select {
 		flex: 1 1 0;
