@@ -36,6 +36,7 @@
 
 	onMount(() => {
 		theme.init();
+		shell.initInspector();
 		void app.start();
 		pwa.init();
 		notifications.start();
@@ -45,6 +46,17 @@
 		mq.addEventListener('change', change);
 		return () => mq.removeEventListener('change', change);
 	});
+
+	// Selecting a reminder asks to inspect it: show the panel if it was hidden.
+	let lastSelected: string | null = null;
+	$effect(() => {
+		const key = shell.selected
+			? `${shell.selected.file}:${shell.selected.line}:${shell.selected.date}`
+			: null;
+		if (key && key !== lastSelected && shell.inspectorHidden) shell.setInspectorHidden(false);
+		lastSelected = key;
+	});
+	const panelHidden = $derived(desktop && shell.inspectorHidden);
 
 	// On phones the inspector is a bottom sheet, open while something is selected.
 	let sheetOpen = $derived(!desktop && shell.selected !== null);
@@ -64,6 +76,17 @@
 		) {
 			event.preventDefault();
 			shell.composing = true;
+		} else if (
+			event.key === 'i' &&
+			desktop &&
+			!typing &&
+			!modal &&
+			!event.metaKey &&
+			!event.ctrlKey &&
+			!event.altKey
+		) {
+			event.preventDefault();
+			shell.setInspectorHidden(!shell.inspectorHidden);
 		}
 	}
 </script>
@@ -72,7 +95,7 @@
 
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="app">
+<div class="app" class:panel-hidden={panelHidden}>
 	<header class="topbar">
 		<Brand />
 		<a
@@ -112,7 +135,34 @@
 		{@render children()}
 	</main>
 
-	<aside class="panel" aria-label="Inspector">
+	{#if panelHidden}
+		<div class="panel-strip">
+			<button
+				type="button"
+				class="panel-show"
+				aria-controls="inspector"
+				aria-expanded="false"
+				title="Show the inspector (i)"
+				onclick={() => shell.setInspectorHidden(false)}
+			>
+				<Icon name="panel" size={18} /><span class="vh">Show inspector</span>
+			</button>
+		</div>
+	{/if}
+
+	<aside class="panel" id="inspector" aria-label="Inspector" hidden={panelHidden}>
+		<div class="panel-bar">
+			<button
+				type="button"
+				class="panel-hide"
+				aria-controls="inspector"
+				aria-expanded="true"
+				title="Hide the inspector (i)"
+				onclick={() => shell.setInspectorHidden(true)}
+			>
+				<Icon name="panel" size={18} /><span class="vh">Hide inspector</span>
+			</button>
+		</div>
 		<!-- On phones the inspector lives in the sheet below; mount it only once. -->
 		{#if desktop && shell.selected}
 			{#key `${shell.selected.file}:${shell.selected.line}:${shell.selected.date}`}
@@ -368,7 +418,64 @@
 			overflow: auto;
 			border-left: 1px solid var(--rule);
 			background: var(--surface);
-			padding: 28px 24px 40px;
+			padding: 12px 24px 40px;
+		}
+		.panel[hidden] {
+			display: none;
+		}
+		/* Hidden, the panel leaves a slim strip with the button that brings it back. */
+		.app.panel-hidden {
+			grid-template-columns: 236px minmax(0, 1fr) 48px;
+			/* The calendar grid uses the space; text views keep their reading width. */
+			--grid-view-max: 1180px;
+		}
+		.panel-bar {
+			display: flex;
+			justify-content: flex-end;
+			margin: 0 -12px 4px 0;
+		}
+		.panel-hide,
+		.panel-show {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			height: 36px;
+			padding: 0 10px;
+			border-radius: 10px;
+			border: 1px solid var(--rule);
+			background: var(--surface);
+			color: var(--ink-2);
+			font-weight: 600;
+			font-size: 13.5px;
+			cursor: pointer;
+		}
+		.panel-hide:hover,
+		.panel-show:hover {
+			color: var(--ink);
+			background: var(--sunk);
+		}
+		.panel-strip {
+			border-left: 1px solid var(--rule);
+			background: var(--surface);
+			padding: 12px 6px;
+		}
+		.panel-show {
+			width: 36px;
+			padding: 0;
+			justify-content: center;
+		}
+	}
+	/* The toggle exists only beside the desktop panel. */
+	.panel-bar,
+	.panel-show {
+		display: none;
+	}
+	@media (min-width: 960px) {
+		.panel-bar {
+			display: flex;
+		}
+		.panel-show {
+			display: inline-flex;
 		}
 	}
 </style>

@@ -13,6 +13,8 @@ export interface Selection {
 	date: IsoDate | null;
 }
 
+const INSPECTOR_KEY = 'fasti-inspector';
+
 /**
  * State the app shell shares with the views: the selected reminder (the
  * inspector shows it: the right panel on desktop, a bottom sheet on phones),
@@ -27,6 +29,27 @@ class Shell {
 	composing = $state(false);
 	/** Hides the phone FAB while a view covers the screen (Month's expanded day drawer). */
 	hideFab = $state(false);
+	/** The desktop inspector panel is hidden (remembered on this device). */
+	inspectorHidden = $state(false);
+
+	/** Reads the remembered inspector choice; call once in the browser. */
+	initInspector() {
+		try {
+			this.inspectorHidden = localStorage.getItem(INSPECTOR_KEY) === 'hidden';
+		} catch {
+			// Storage unavailable: shown.
+		}
+	}
+
+	setInspectorHidden(hidden: boolean) {
+		this.inspectorHidden = hidden;
+		try {
+			if (hidden) localStorage.setItem(INSPECTOR_KEY, 'hidden');
+			else localStorage.removeItem(INSPECTOR_KEY);
+		} catch {
+			// Storage unavailable: the choice lasts for this visit.
+		}
+	}
 
 	select(selection: Selection | null) {
 		this.selected = selection;

@@ -33,7 +33,7 @@ test('on phones the New button hides while the Month drawer is expanded', async 
 	await page.goto('/month');
 	const fab = page.getByRole('button', { name: 'New reminder' });
 	await expect(fab).toBeVisible();
-	const handle = page.locator('button[aria-expanded]').first();
+	const handle = page.getByRole('button', { name: 'Day details' });
 	await handle.click();
 	await expect(handle).toHaveAttribute('aria-expanded', 'true');
 	await expect(fab).toBeHidden();

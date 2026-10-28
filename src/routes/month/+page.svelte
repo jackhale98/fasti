@@ -448,7 +448,8 @@
 
 <style>
 	.page {
-		max-width: 760px;
+		/* Wider when the desktop inspector is hidden (--grid-view-max, set by the layout). */
+		max-width: var(--grid-view-max, 760px);
 		margin: 0 auto;
 		padding: 20px max(16px, env(safe-area-inset-right, 0px)) 8px
 			max(16px, env(safe-area-inset-left, 0px));
