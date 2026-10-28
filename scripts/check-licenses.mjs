@@ -107,6 +107,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 		console.error(`${SHIPPED} is missing: run \`npm run build\` first.`);
 		process.exit(2);
 	}
+	// Svelte's runtime always ships, so an empty list means the build didn't record anything.
+	if (!dirs.length) {
+		console.error(`${SHIPPED} lists no packages: the build's package recording is broken.`);
+		process.exit(2);
+	}
 	const list = process.argv.includes('--list');
 	const bad = [];
 	for (const dir of dirs) {

@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const SOURCE = /\.(ts|js|mjs|cjs|svelte|css|sh)$/;
+export const SOURCE = /\.(ts|js|mjs|cjs|svelte|css|html|sh)$/;
 export const SKIP = /^(reference|engine\/vendor|engine\/patches|static\/engine)\//;
 
 /**

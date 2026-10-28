@@ -29,27 +29,43 @@ function previewFallback(): Plugin {
 	};
 }
 
+/** Module ids of every chunk a visitor's browser can load (shippedPackages). */
+const shippedModules = new Set<string>();
+
 /**
- * Records which npm packages have code in the client build, for the licence
- * check (scripts/check-licenses.mjs). The server build SvelteKit makes for
- * prerendering never reaches a visitor, so it isn't counted.
+ * Collects the modules of each chunk it sees into `shippedModules`. Runs in
+ * every client-side build: the page, the service worker and (registered under
+ * `worker.plugins`) each Web Worker bundle. The server build SvelteKit makes
+ * for prerendering never reaches a visitor, so it isn't counted.
+ */
+function collectModules(): Plugin {
+	return {
+		name: 'fasti:collect-modules',
+		apply: 'build',
+		generateBundle(_options, bundle) {
+			// Web Worker bundles have no environment of their own: they are client code.
+			if (this.environment && this.environment.config.consumer !== 'client') return;
+			for (const output of Object.values(bundle)) {
+				if (output.type === 'chunk') for (const id of output.moduleIds) shippedModules.add(id);
+			}
+		}
+	};
+}
+
+/**
+ * Writes which npm packages have code in the site to
+ * .svelte-kit/shipped-packages.json, for the licence check
+ * (scripts/check-licenses.mjs).
  */
 function shippedPackages(): Plugin {
-	const modules = new Set<string>();
 	return {
 		name: 'fasti:shipped-packages',
 		apply: 'build',
-		generateBundle(_options, bundle) {
-			if (this.environment.name !== 'client') return;
-			for (const output of Object.values(bundle)) {
-				if (output.type === 'chunk') for (const id of output.moduleIds) modules.add(id);
-			}
-		},
 		buildApp: {
 			order: 'post',
 			async handler() {
 				const packages = new Set<string>();
-				for (const id of modules) {
+				for (const id of shippedModules) {
 					const at = id.lastIndexOf('/node_modules/');
 					if (at < 0) continue;
 					const parts = id.slice(at + '/node_modules/'.length).split('/');
@@ -127,8 +143,13 @@ export default defineConfig({
 			}
 		}),
 		previewFallback(),
+		collectModules(),
 		shippedPackages()
 	],
+	worker: {
+		format: 'es',
+		plugins: () => [collectModules()]
+	},
 	build: {
 		// Fonts stay files: the CSP allows fonts from 'self' only, not data: URIs.
 		assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined)

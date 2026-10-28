@@ -8,8 +8,10 @@ published site as a whole is conveyed under GPL-2.0.
 ## Remind
 
 Remind, the reminder program that computes every date Fasti shows, runs in
-the site as `remind.wasm`: an unmodified build of Remind 06.03.06, compiled to
-WebAssembly and run as a separate program in its own worker.
+the site as `remind.wasm`: Remind 06.03.06 built from its release source,
+compiled to WebAssembly and run as a separate program in its own worker. Any
+change Fasti makes to Remind's source is a patch in `engine/patches/`, saying
+what it changes and why, and is listed in `engine/BUILD-INFO.json`. None so far.
 
 > REMIND is Copyright (C) 1992-2026 Dianne Skoll, except where noted in
 > individual files.

@@ -335,7 +335,7 @@ The agent definitions live in `.claude/agents/` (one file per agent): `engine-bu
 
 - OAuth tokens live only in IndexedDB on the device. They reach only the provider and Fasti's worker, which holds them in memory for one request.
 - The worker allow-lists origins and hosts, drops cookies and refuses IP and local hostnames for WebDAV (keep Mycelium's hardening section).
-- Content Security Policy via a meta tag: `script-src 'self' 'wasm-unsafe-eval'`, no inline scripts, `connect-src` limited to the worker and the configured providers.
+- Content Security Policy via a meta tag: `script-src 'self' 'wasm-unsafe-eval'`, no inline scripts, `connect-src` limited to the worker and the configured providers. One exception, recorded in Phase 0: SvelteKit's start-up script is inline in the page and SvelteKit has no option to move it to a file, so `script-src` allows that one script by its SHA-256 hash (SvelteKit's `csp.mode: 'hash'`). No `'unsafe-inline'`; any other inline script is blocked.
 - Push payloads are encrypted on the device; the worker can't read reminder text.
 - Remind always runs with `-r` and a time limit.
 
