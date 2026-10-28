@@ -1,0 +1,4 @@
+The worker is part of Fasti and is licensed like the rest of it: GPL-2.0-or-later.
+The licence text is in ../LICENSE. Parts are adapted from Mycelium
+(github.com/jackhale98/mycelium-web) under the owner's grant recorded in
+../THIRD_PARTY_NOTICES.md.

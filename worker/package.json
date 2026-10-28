@@ -1,0 +1,18 @@
+{
+	"name": "fasti-worker",
+	"private": true,
+	"license": "GPL-2.0-or-later",
+	"type": "module",
+	"scripts": {
+		"build": "wrangler deploy --dry-run",
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"check": "tsc -p .",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.3",
+		"vitest": "^5.0.5",
+		"wrangler": "4.151.3"
+	}
+}

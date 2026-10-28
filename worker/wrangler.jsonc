@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Adapted from Mycelium (github.com/jackhale98/mycelium-web) under the owner's grant
+// in THIRD_PARTY_NOTICES.md.
+//
+// Fasti's worker. JSONC (not TOML) on purpose: Wrangler prefers a .jsonc config.
+{
+	"name": "fasti-worker",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	// Keep variables set in the Cloudflare dashboard when deploying (secrets are always
+	// kept); otherwise every deploy would delete them.
+	"keep_vars": true,
+	// No logs, and no storage except opt-in reminders: one small Durable Object
+	// per browser push subscription (see src/push.ts). No KV, D1 or R2.
+	"observability": { "enabled": false },
+	"durable_objects": {
+		"bindings": [{ "name": "REMINDERS", "class_name": "PushQueue" }]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["PushQueue"] }],
+	"vars": {
+		// Origins that may use this worker: the GitHub Pages site and localhost
+		// (vite preview, vite dev) for development. Origins only, no paths.
+		"ALLOWED_ORIGINS": "https://jackhale98.github.io,http://localhost:4173,http://localhost:5173"
+		// "EXTRA_GIT_HOSTS": "git.example.com",
+		// "DAV_HOSTS": "cloud.example.com",
+		// "VAPID_SUBJECT": "mailto:you@example.com",
+	}
+	// Optional rate limit on PUT /push/reminders per client IP (off while this is absent).
+	// Uncomment, deploy; see docs/setup-worker.md.
+	// "ratelimits": [
+	//   { "name": "PUSH_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
+	// ],
+	// OAuth client credentials are secrets, never vars:
+	//   npx wrangler secret put GITHUB_CLIENT_ID
+	//   npx wrangler secret put GITHUB_CLIENT_SECRET
+	// (and GITLAB_*, BITBUCKET_* when those apps are registered)
+	// Reminders (Web Push): `node scripts/vapid-keys.mjs` prints a key pair, then
+	//   npx wrangler secret put VAPID_PUBLIC_KEY
+	//   npx wrangler secret put VAPID_PRIVATE_KEY
+}
