@@ -10,6 +10,10 @@
 	import Brand from '#lib/ui/Brand.svelte';
 	import Icon, { type IconName } from '#lib/ui/Icon.svelte';
 	import Toast from '#lib/ui/Toast.svelte';
+	import Sheet from '#lib/ui/Sheet.svelte';
+	import Inspector from '#lib/ui/inspector/Inspector.svelte';
+	import QuickAdd from '#lib/ui/quickadd/QuickAdd.svelte';
+	import { app } from '#lib/app/app.svelte.ts';
 	import { shell } from '#lib/ui/shell.svelte.ts';
 	import { theme } from '#lib/ui/theme.svelte.ts';
 
@@ -25,7 +29,21 @@
 	const here = $derived(page.route.id ?? '/');
 	const current = (path: string) => (here === path ? 'page' : undefined);
 
-	onMount(() => theme.init());
+	const desktopQuery = '(min-width: 960px)';
+	let desktop = $state(false);
+
+	onMount(() => {
+		theme.init();
+		void app.start();
+		const mq = matchMedia(desktopQuery);
+		desktop = mq.matches;
+		const change = () => (desktop = mq.matches);
+		mq.addEventListener('change', change);
+		return () => mq.removeEventListener('change', change);
+	});
+
+	// On phones the inspector is a bottom sheet, open while something is selected.
+	let sheetOpen = $derived(!desktop && shell.selected !== null);
 
 	function onkeydown(event: KeyboardEvent) {
 		const target = event.target as HTMLElement | null;
@@ -86,7 +104,11 @@
 	</main>
 
 	<aside class="panel" aria-label="Inspector">
-		{#if shell.panel}
+		{#if shell.selected}
+			{#key `${shell.selected.file}:${shell.selected.line}:${shell.selected.date}`}
+				<Inspector selection={shell.selected} />
+			{/key}
+		{:else if shell.panel}
 			{@render shell.panel()}
 		{:else}
 			<h2 class="eyebrow">Inspector</h2>
@@ -106,6 +128,18 @@
 		<Icon name="plus" size={22} stroke={2.2} />New
 	</button>
 </div>
+
+{#if !desktop}
+	<Sheet bind:open={sheetOpen} title="Reminder" onclose={() => shell.select(null)}>
+		{#if shell.selected}
+			<Inspector selection={shell.selected} />
+		{/if}
+	</Sheet>
+{/if}
+
+<Sheet bind:open={shell.composing} title="New reminder" testid="quickadd">
+	<QuickAdd onadded={() => (shell.composing = false)} />
+</Sheet>
 
 <Toast />
 
