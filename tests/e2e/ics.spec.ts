@@ -28,7 +28,9 @@ test('picking files needs at least one, and the note says it is a snapshot', asy
 	await expect(page.getByText(/snapshot/)).toBeVisible();
 	await page.getByRole('radio', { name: 'Pick files' }).check();
 	await expect(page.getByRole('button', { name: 'Export .ics' })).toBeDisabled();
-	await page.getByRole('checkbox').nth(0).check();
+	// Scoped to this section: Settings has other checkboxes above it.
+	const section = page.getByRole('region', { name: 'Calendar export' });
+	await section.getByRole('checkbox').nth(0).check();
 	await expect(page.getByRole('button', { name: 'Export .ics' })).toBeEnabled();
 });
 

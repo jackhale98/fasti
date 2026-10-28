@@ -161,7 +161,10 @@ test('import can replace a changed file after confirmation', async ({ page }) =>
 	await chooseFiles(page, [{ name: 'birthdays.rem', text: 'REM 2 Nov MSG Replaced\n' }]);
 	const dialog = page.getByRole('dialog', { name: 'Import files' });
 	await dialog.getByRole('button', { name: 'Add and replace' }).click();
-	await expect(page.getByRole('status')).toContainText('Imported 1 file');
+	// The app's toast (other sections have status regions of their own).
+	await expect(page.getByRole('status').filter({ hasText: 'Imported' })).toContainText(
+		'Imported 1 file'
+	);
 	await page.getByRole('button', { name: 'Undo' }).click();
 });
 
