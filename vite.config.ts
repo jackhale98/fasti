@@ -160,6 +160,6 @@ export default defineConfig({
 	},
 	test: {
 		environment: 'node',
-		include: ['src/**/*.test.ts', 'tests/{unit,lens,engine}/**/*.test.ts']
+		include: ['src/**/*.test.ts', 'tests/{unit,lens,engine,store}/**/*.test.ts']
 	}
 });

@@ -1,0 +1,9 @@
+# Days off. Reminders that use SKIP, BEFORE, AFTER,
+# -N or +N work around these.
+OMIT Sat Sun
+OMIT 1 Jan MSG New Year's Day
+OMIT 4 Jul MSG Independence Day
+OMIT 11 Nov MSG Veterans Day
+OMIT 25 Dec +3 MSG Christmas %b
+REM Mon 1 Sep SCANFROM -7 ADDOMIT MSG Labor Day
+REM Thu 22 Nov SCANFROM -7 ADDOMIT MSG Thanksgiving
