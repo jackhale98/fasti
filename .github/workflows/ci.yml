@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    uses: ./.github/workflows/engine.yml
+
+  checks:
+    needs: engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - if: needs.engine.outputs.built == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: remind-wasm
+          path: static/engine/
+
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run spdx
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      # Reads the package list the build just wrote.
+      - run: npm run licenses -- --list
+
+  e2e:
+    needs: engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - if: needs.engine.outputs.built == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: remind-wasm
+          path: static/engine/
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # The test server builds the site first (playwright.config.ts).
+      - name: End-to-end and accessibility tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

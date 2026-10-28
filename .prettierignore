@@ -1,0 +1,16 @@
+node_modules
+.svelte-kit
+build
+test-results
+playwright-report
+package-lock.json
+LICENSE
+/static/engine
+/engine/vendor
+/engine/.build
+/reference
+*.md
+/.cache
+/.lighthouseci
+.wrangler
+*.rem

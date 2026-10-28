@@ -1,0 +1,23 @@
+node_modules
+.svelte-kit
+build
+test-results
+playwright-report
+blob-report
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+/.cache/
+.lighthouseci
+# Remind built to WebAssembly by engine/build.sh (a CI artifact, never committed)
+/static/engine/
+# engine/build.sh's scratch tree
+/engine/.build/
+# Wrangler's local state (worker/)
+.wrangler/
+.dev.vars

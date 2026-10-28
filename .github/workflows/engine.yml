@@ -1,0 +1,63 @@
+name: Engine
+
+# Builds Remind to WebAssembly (engine/build.sh) inside the pinned emsdk image
+# and uploads static/engine/ as the `remind-wasm` artifact. CI calls this
+# workflow on every push; the cache makes that cheap when engine/ is unchanged.
+# Until the human commits the release tarball (docs/PLAN.md section 12,
+# step 1) there is nothing to build, and the job says so instead of failing.
+
+on:
+  workflow_call:
+    outputs:
+      built:
+        description: "'true' when remind-wasm was uploaded"
+        value: ${{ jobs.build.outputs.built }}
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      built: ${{ steps.done.outputs.built }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: source
+        name: Look for the vendored tarball
+        run: |
+          if compgen -G 'engine/vendor/remind-*.tar.gz' > /dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No Remind tarball in engine/vendor/ yet (docs/PLAN.md section 12, step 1); nothing to build."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The build depends only on engine/ (tarball, patches, script).
+      - id: cache
+        if: steps.source.outputs.present == 'true'
+        uses: actions/cache@v4
+        with:
+          path: static/engine
+          key: remind-wasm-${{ hashFiles('engine/**') }}
+
+      - name: Build Remind to WebAssembly
+        if: steps.source.outputs.present == 'true' && steps.cache.outputs.cache-hit != 'true'
+        run: engine/build.sh
+
+      - name: Check that BUILD-INFO.json is committed as built
+        if: steps.source.outputs.present == 'true' && steps.cache.outputs.cache-hit != 'true'
+        run: git diff --exit-code engine/BUILD-INFO.json
+
+      - if: steps.source.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: remind-wasm
+          path: static/engine/
+          retention-days: 7
+
+      - id: done
+        run: echo "built=${{ steps.source.outputs.present }}" >> "$GITHUB_OUTPUT"

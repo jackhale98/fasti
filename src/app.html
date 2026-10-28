@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<!-- The Content-Security-Policy meta tag is written by SvelteKit (vite.config.ts, `csp`). -->
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+		/>
+		<meta name="color-scheme" content="light dark" />
+		<meta name="theme-color" content="#f2f4f1" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0d1411" media="(prefers-color-scheme: dark)" />
+		<meta
+			name="description"
+			content="Fasti is a web front end for the Remind reminder language. It works offline and reads and writes your own .rem files."
+		/>
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+		<meta name="application-name" content="Fasti" />
+		<meta name="apple-mobile-web-app-title" content="Fasti" />
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
