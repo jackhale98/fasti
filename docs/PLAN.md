@@ -398,6 +398,9 @@ Keep this section current. One line per completed item, newest last.
   - [x] `engine/build.sh` in `emscripten/emsdk:6.0.13` pinned by digest (verified to run here); checks the tarball's SHA-256 against `SOURCE.md`. `engine/vendor/README.md` tells the human what to commit.
   - [ ] **Blocked on section 12, step 1** (the Remind tarball): WASM build, the spike checklist in 3.2, `docs/engine.md` with confirmed flags, `docs/remind-reference.md`.
 - [ ] Phase 1: engine client and lens
+  - [x] Lens (`src/lib/lens/`, 198 tests): tokenizer with Remind's own continuation rules (`files.c`), CodeMirror language and completions, explanations, quick add, byte-exact patcher with property tests. Reviewer signed off on `patch.ts` after one round of fixes.
+  - Follow-ups for the quick-add UI (Phase 3), all low: flag a refused date instead of silently using today (`dentist 31 Feb`); reject years outside 1990–2075; try later date matches when the first is refused; markDone on a line with two COMPLETE-THROUGH clauses updates only the second (Remind would reject such a line anyway).
+  - [ ] Engine client (`src/lib/engine/`), after the spike.
 - [ ] Phase 2: vault and storage
 - [ ] Phase 3: UI
 - [ ] Phase 4: sync and worker
