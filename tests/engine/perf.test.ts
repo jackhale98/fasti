@@ -28,59 +28,65 @@ async function median(req: EngineRequest, runs = 5): Promise<{ ms: number; value
 	return { ms: times[Math.floor(runs / 2)]!, value };
 }
 
-describe.skipIf(!engineBuilt)('large fixture timings (Node, one thread)', () => {
-	beforeAll(async () => {
-		engine = await nodeEngine();
-		await runOp(engine, { op: 'agenda', date: '2026-10-28', vault }); // warm up the JIT
-	});
+// The per-operation bounds below are the regression guard; the test's own
+// time limit is generous so a busy machine (CI, parallel runs) doesn't trip it.
+describe.skipIf(!engineBuilt)(
+	'large fixture timings (Node, one thread)',
+	{ timeout: 60_000 },
+	() => {
+		beforeAll(async () => {
+			engine = await nodeEngine();
+			await runOp(engine, { op: 'agenda', date: '2026-10-28', vault }); // warm up the JIT
+		});
 
-	it('agenda and one calendar month', async () => {
-		const agenda = await median({ op: 'agenda', date: '2026-10-28', tz: 'UTC', vault });
-		const month = await median({ op: 'calendarMonth', month: '2026-10', tz: 'UTC', vault }, 3);
-		console.log(
-			`large vault: agenda ${agenda.ms.toFixed(0)} ms, one calendar month ${month.ms.toFixed(0)} ms`
-		);
-		expect(agenda.ms).toBeLessThan(500);
-		expect(month.ms).toBeLessThan(3000);
-	});
+		it('agenda and one calendar month', async () => {
+			const agenda = await median({ op: 'agenda', date: '2026-10-28', tz: 'UTC', vault });
+			const month = await median({ op: 'calendarMonth', month: '2026-10', tz: 'UTC', vault }, 3);
+			console.log(
+				`large vault: agenda ${agenda.ms.toFixed(0)} ms, one calendar month ${month.ms.toFixed(0)} ms`
+			);
+			expect(agenda.ms).toBeLessThan(500);
+			expect(month.ms).toBeLessThan(3000);
+		});
 
-	it('nextDates (6 dates) and preview, for a line early and late in the vault', async () => {
-		// A yearly birthday in birthdays.rem (DOne second) and a weekly line in personal.rem (DOne last).
-		const early = await median({
-			op: 'nextDates',
-			file: 'birthdays.rem',
-			line: 300,
-			from: '2026-10-28',
-			tz: 'UTC',
-			vault
+		it('nextDates (6 dates) and preview, for a line early and late in the vault', async () => {
+			// A yearly birthday in birthdays.rem (DOne second) and a weekly line in personal.rem (DOne last).
+			const early = await median({
+				op: 'nextDates',
+				file: 'birthdays.rem',
+				line: 300,
+				from: '2026-10-28',
+				tz: 'UTC',
+				vault
+			});
+			const late = await median({
+				op: 'nextDates',
+				file: 'personal.rem',
+				line: 601,
+				from: '2026-10-28',
+				tz: 'UTC',
+				vault
+			});
+			expect((early.value as NextDatesResult).dates).toHaveLength(6);
+			expect((late.value as NextDatesResult).dates).toHaveLength(6);
+			const preview = await median({
+				op: 'preview',
+				file: 'personal.rem',
+				line: 600,
+				newText: 'REM Mon Wed Fri AT 7:30 MSG Run',
+				from: '2026-10-28',
+				tz: 'UTC',
+				vault
+			});
+			const dates = (preview.value as NextDatesResult).dates;
+			expect(dates).toHaveLength(6);
+			expect(dates[0]).toEqual({ date: '2026-10-28', time: 450 });
+			console.log(
+				`large vault: nextDates early ${early.ms.toFixed(0)} ms, late ${late.ms.toFixed(0)} ms; ` +
+					`preview late ${preview.ms.toFixed(0)} ms (6 dates each)`
+			);
+			expect(late.ms).toBeLessThan(1500);
+			expect(preview.ms).toBeLessThan(1500);
 		});
-		const late = await median({
-			op: 'nextDates',
-			file: 'personal.rem',
-			line: 601,
-			from: '2026-10-28',
-			tz: 'UTC',
-			vault
-		});
-		expect((early.value as NextDatesResult).dates).toHaveLength(6);
-		expect((late.value as NextDatesResult).dates).toHaveLength(6);
-		const preview = await median({
-			op: 'preview',
-			file: 'personal.rem',
-			line: 600,
-			newText: 'REM Mon Wed Fri AT 7:30 MSG Run',
-			from: '2026-10-28',
-			tz: 'UTC',
-			vault
-		});
-		const dates = (preview.value as NextDatesResult).dates;
-		expect(dates).toHaveLength(6);
-		expect(dates[0]).toEqual({ date: '2026-10-28', time: 450 });
-		console.log(
-			`large vault: nextDates early ${early.ms.toFixed(0)} ms, late ${late.ms.toFixed(0)} ms; ` +
-				`preview late ${preview.ms.toFixed(0)} ms (6 dates each)`
-		);
-		expect(late.ms).toBeLessThan(1500);
-		expect(preview.ms).toBeLessThan(1500);
-	});
-});
+	}
+);

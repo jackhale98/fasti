@@ -74,8 +74,7 @@ particular Mycelium's org parser (uniorg, GPL-3.0-or-later) and Dexie
 ## Code adapted from Tessera
 
 The offline support (`src/lib/offline/caching.ts`, `src/lib/offline/pwa.svelte.ts`,
-`src/service-worker/index.ts`), the Vite and Playwright configuration and
-`scripts/make-icons.mjs` are adapted from Tessera
+`src/service-worker/index.ts`), and the Vite and Playwright configuration are adapted from Tessera
 (https://github.com/jackhale98/sysml-web), used under the MIT option of its
 "Apache-2.0 OR MIT" licence:
 

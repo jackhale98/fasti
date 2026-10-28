@@ -4,19 +4,14 @@
 </script>
 
 <span class="brand">
-	<svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
-		<rect
-			x="3"
-			y="4"
-			width="18"
-			height="17"
-			rx="3"
-			fill="none"
-			stroke="var(--ledger)"
-			stroke-width="1.8"
+	<!-- Fasti's mark (static/favicon.svg): F for fastus, and today's yellow square. -->
+	<svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+		<rect width="100" height="100" rx="23" fill="#1e5b49" />
+		<path
+			fill="#f2f4f1"
+			d="M27 22 H71 V37 H67 Q65.5 31.5 59 31.5 H42.5 V45 H55 Q58.5 45 59.5 41.5 H62.5 V57.5 H59.5 Q58.5 54 55 54 H42.5 V71 Q42.5 74 46 74.5 L49 75 V78 H27 V75 L29 74.5 Q31 74 31 71 V29 Q31 26 29 25.5 L27 25 Z"
 		/>
-		<path d="M3 9h18" stroke="var(--ledger)" stroke-width="1.8" />
-		<rect x="7" y="12.5" width="4" height="4" rx="1" fill="var(--mark)" />
+		<rect x="56" y="64" width="14" height="14" rx="3.5" fill="#f3d04a" />
 	</svg>
 	<span class="words">
 		Fasti
@@ -36,8 +31,8 @@
 		color: var(--ink);
 	}
 	.mark {
-		width: 22px;
-		height: 22px;
+		width: 24px;
+		height: 24px;
 		flex: none;
 	}
 	.words {
