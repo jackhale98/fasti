@@ -411,6 +411,8 @@ Keep this section current. One line per completed item, newest last.
   - [ ] Engine client (`src/lib/engine/`), after the spike.
 - [ ] Phase 2: vault and storage
 - [ ] Phase 3: UI
+  - [x] Today view (`src/routes/+page.svelte`, `src/lib/ui/today/`, `tests/e2e/today.spec.ts`): banner, Overdue, Today, Heads-up, Next two weeks from the calendar.
+  - Note: `app.snapshot` is a `$state` proxy and cannot be posted to the worker; views pass `$state.snapshot(app.snapshot)` (or app.svelte.ts should use `$state.raw`).
 - [ ] Phase 4: sync and worker
 - [ ] Phase 5: notifications
 - [ ] Phase 6: PWA, performance, docs, deploy
