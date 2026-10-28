@@ -50,7 +50,10 @@ for (const [file, size, scale, radius] of icons) {
 	await page.setContent(
 		`<style>html,body{margin:0;background:transparent}svg{display:block;width:${size}px;height:${size}px}</style>${tile(scale, radius)}`
 	);
-	writeFileSync(join(root, 'static', file), await page.screenshot({ type: 'png', omitBackground: true }));
+	writeFileSync(
+		join(root, 'static', file),
+		await page.screenshot({ type: 'png', omitBackground: true })
+	);
 	console.log(`wrote static/${file}`);
 }
 await browser.close();

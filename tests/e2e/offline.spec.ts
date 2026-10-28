@@ -14,7 +14,7 @@ test('after one visit, every view works offline, engine included', async ({ page
 	// Remind runs from the cached remind.wasm: the banner is Remind's own text.
 	await expect(page.getByText(/^Reminders for /)).toBeVisible();
 	await expect(page.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible();
-	for (const [path, heading] of [
+	for (const [path, heading] of <[string, string][]>[
 		['/month', 'Month'],
 		['/script', 'Script'],
 		['/settings', 'Settings']
