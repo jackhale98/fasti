@@ -212,7 +212,89 @@ describe('PushQueue', () => {
 	});
 });
 
+describe('PushQueue failures', () => {
+	const setup = async () => {
+		vi.useFakeTimers({ now: Date.UTC(2026, 9, 28, 9), toFake: ['Date'] });
+		const now = Date.now();
+		const mem = memoryStorage();
+		const queue = new PushQueue({ storage: mem.storage }, await vapidKeys());
+		await queue.fetch(
+			new Request('https://queue/', {
+				method: 'PUT',
+				body: JSON.stringify({ endpoint: ENDPOINT, reminders: [{ at: now, payload: 'AQ' }] })
+			})
+		);
+		return { now, mem, queue };
+	};
+
+	it.each([400, 403, 404, 410])('forgets the list when the push service answers %i', async (s) => {
+		const { mem, queue } = await setup();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(null, { status: s }))
+		);
+		await queue.alarm();
+		expect(mem.data.size).toBe(0);
+	});
+
+	it.each([0, 429, 503])('retries once a minute later after %i, then gives up', async (s) => {
+		const { now, mem, queue } = await setup();
+		const fetch = vi.fn(async () => {
+			if (s === 0) throw new Error('network');
+			return new Response(null, { status: s });
+		});
+		vi.stubGlobal('fetch', fetch);
+		await queue.alarm();
+		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(mem.alarm()).toBe(now + 60_000);
+		vi.setSystemTime(now + 60_000);
+		await queue.alarm();
+		expect(fetch).toHaveBeenCalledTimes(2);
+		const left = mem.data.get('queue') as { reminders: unknown[] };
+		expect(left.reminders).toEqual([]);
+	});
+
+	it('does not retry once the message would be stale', async () => {
+		const { now, mem, queue } = await setup();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(null, { status: 503 }))
+		);
+		// The alarm fired late: the message's five minutes are nearly over.
+		vi.setSystemTime(now + 280_000);
+		await queue.alarm();
+		expect((mem.data.get('queue') as { reminders: unknown[] }).reminders).toEqual([]);
+	});
+});
+
 describe('/push routes', () => {
+	it('limits PUT /push/reminders per client when a rate limit is bound', async () => {
+		const keys = await vapidKeys();
+		const seen: string[] = [];
+		let allow = false;
+		const env: Env = {
+			ALLOWED_ORIGINS: 'https://app.example',
+			...keys,
+			REMINDERS: { idFromName: (n) => n, get: () => ({ fetch: async () => new Response(null) }) },
+			PUSH_RATE_LIMIT: {
+				limit: async ({ key }) => (seen.push(key), { success: allow })
+			}
+		};
+		const put = () =>
+			worker.fetch(
+				new Request('https://proxy.example/push/reminders', {
+					method: 'PUT',
+					headers: { Origin: 'https://app.example', 'CF-Connecting-IP': '203.0.113.9' },
+					body: JSON.stringify({ endpoint: ENDPOINT, reminders: [] })
+				}),
+				env
+			);
+		expect((await put()).status).toBe(429);
+		expect(seen).toEqual(['203.0.113.9']);
+		allow = true;
+		expect((await put()).status).toBe(204);
+	});
+
 	const ORIGIN = 'https://app.example';
 	const base: Env = { ALLOWED_ORIGINS: ORIGIN };
 	const req = (path: string, init: RequestInit = {}) =>

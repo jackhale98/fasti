@@ -21,9 +21,9 @@ Privacy and hardening, as built:
 - OAuth codes and tokens, and WebDAV credentials, live in memory for one
   request and are never stored.
 - The WebDAV relay refuses IP addresses and local host names, requires
-  credentials, caps bodies at 20 MB and follows no redirects.
-- Push messages are encrypted on the device; the worker stores only times and
-  sealed bytes.
+  credentials, caps bodies at 20 MB and follows no redirects. The git proxy follows only same-host redirects.
+- Push messages are encrypted on the device; the worker stores only the push
+  address, times and sealed bytes.
 
 Develop:
 

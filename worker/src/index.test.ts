@@ -53,6 +53,50 @@ describe('git proxy', () => {
 		expect(res.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');
 	});
 
+	it('follows redirects only on the same host, and never sends credentials elsewhere', async () => {
+		const path = '/github.com/a/b.git/info/refs?service=git-upload-pack';
+		const headers = { Authorization: 'Bearer t' };
+		const fetch = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(null, {
+					status: 301,
+					headers: { Location: '/a/b/info/refs?service=git-upload-pack' }
+				})
+			)
+			.mockResolvedValueOnce(
+				new Response('ok', { status: 200, headers: { 'Cache-Control': 'max-age=99' } })
+			);
+		vi.stubGlobal('fetch', fetch);
+		const res = await call(path, { headers });
+		expect(res.status).toBe(200);
+		expect(res.headers.get('Cache-Control')).toBe('no-store');
+		const calls = fetch.mock.calls as unknown as [string, RequestInit][];
+		expect(calls[0]![1].redirect).toBe('manual');
+		expect(calls[1]![0]).toBe('https://github.com/a/b/info/refs?service=git-upload-pack');
+
+		const elsewhere = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(null, { status: 302, headers: { Location: 'https://evil.example/x' } })
+			);
+		vi.stubGlobal('fetch', elsewhere);
+		expect((await call(path, { headers })).status).toBe(502);
+		expect(elsewhere).toHaveBeenCalledTimes(1);
+
+		const post = vi
+			.fn()
+			.mockResolvedValue(new Response(null, { status: 307, headers: { Location: '/x' } }));
+		vi.stubGlobal('fetch', post);
+		const sent = await call('/github.com/a/b.git/git-upload-pack', {
+			method: 'POST',
+			body: 'x',
+			headers
+		});
+		expect(sent.status).toBe(502);
+		expect(post).toHaveBeenCalledTimes(1);
+	});
+
 	it('forwards only git headers and streams the response back', async () => {
 		const upstream = vi.fn(
 			async () =>
@@ -161,6 +205,30 @@ describe('WebDAV relay', () => {
 			'[::1]'
 		])
 			expect(isPublicHost(bad), bad).toBe(false);
+	});
+
+	it('sees through alternative spellings of private addresses', async () => {
+		for (const bad of [
+			'0x7f.0.0.1',
+			'0xa9.0xfe.0xa9.0xfe',
+			'2130706433',
+			'127.1',
+			'017700000001',
+			'localhost.',
+			'metadata.google.internal.',
+			'[::1]',
+			'[fe80::1]',
+			'[::ffff:127.0.0.1]',
+			'127.0.0.1.'
+		])
+			expect(isPublicHost(bad), bad).toBe(false);
+		expect(isPublicHost('cloud.example.com.')).toBe(true);
+		// Refused by the route too, before anything is fetched.
+		const fetch = vi.fn();
+		vi.stubGlobal('fetch', fetch);
+		for (const bad of ['0x7f.0.0.1', '0xa9.0xfe.0xa9.0xfe', 'localhost.'])
+			expect((await call(`/dav/${bad}/x`, { method: 'GET', headers: auth })).status, bad).toBe(403);
+		expect(fetch).not.toHaveBeenCalled();
 	});
 
 	it('passes WebDAV requests through with their conditions, and exposes ETags', async () => {

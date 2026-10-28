@@ -23,6 +23,8 @@ export interface PushEnv {
 	VAPID_PRIVATE_KEY?: string;
 	/** Contact for push services: `mailto:…` or an https URL. */
 	VAPID_SUBJECT?: string;
+	/** Optional Cloudflare Rate Limiting binding for PUT /push/reminders; unlimited when absent. */
+	PUSH_RATE_LIMIT?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
 
 // Just enough of Cloudflare's Durable Object types for this file.
@@ -46,6 +48,11 @@ export const MAX_REMINDERS = 64;
 const MAX_PAYLOAD = 5462;
 const HORIZON = 8 * 86_400_000;
 const EXPIRY = 14 * 86_400_000;
+/** Seconds a push service may hold a message (the TTL header). */
+const TTL = 300;
+const RETRY_AFTER = 60_000;
+/** Push service answers that mean the address is gone or never was one. */
+const DROPPED = [400, 403, 404, 410];
 
 /** Browser push services; any other address is refused (no relaying elsewhere). */
 const PUSH_SERVICES = [
@@ -75,6 +82,8 @@ export interface Queued {
 	at: number;
 	/** The encrypted message, base64url. */
 	payload: string;
+	/** Set by the worker, never by a browser: a failed send has been retried once. */
+	retried?: boolean;
 }
 
 /** Check a schedule a browser sent; an error message, or what to store. */
@@ -192,15 +201,25 @@ export class PushQueue {
 		}
 		const due = stored.reminders.filter((r) => r.at <= now + 30_000);
 		const later = stored.reminders.filter((r) => r.at > now + 30_000);
+		const retry: Queued[] = [];
 		for (const r of due) {
 			const status = await this.#send(stored.endpoint, r.payload, now);
-			// The browser dropped this subscription: nothing more to send to it.
-			if (status === 404 || status === 410) {
+			// The browser dropped this subscription, or the address is junk: forget it.
+			if (DROPPED.includes(status)) {
 				await storage.deleteAll();
 				return;
 			}
+			// Busy push service or network error: once more a minute later, while the
+			// message would still be fresh (its TTL window); otherwise drop it.
+			if ((status === 0 || status === 429 || status >= 500) && !r.retried) {
+				if (now + RETRY_AFTER < r.at + TTL * 1000)
+					retry.push({ at: now + RETRY_AFTER, payload: r.payload, retried: true });
+			}
 		}
-		const next: Stored = { ...stored, reminders: later };
+		const next: Stored = {
+			...stored,
+			reminders: [...later, ...retry].sort((x, y) => x.at - y.at)
+		};
 		await storage.put('queue', next);
 		await this.#wake(next);
 	}
@@ -228,7 +247,7 @@ export class PushQueue {
 					'Content-Encoding': 'aes128gcm',
 					'Content-Type': 'application/octet-stream',
 					// A late reminder is no use: the push service drops it after five minutes.
-					TTL: '300',
+					TTL: String(TTL),
 					Urgency: 'high'
 				},
 				body: fromB64url(payload)
@@ -259,6 +278,10 @@ export async function pushRoute(
 	if (url.pathname !== '/push/reminders') return reply(404, 'Not found');
 	if (request.method !== 'PUT' && request.method !== 'DELETE')
 		return reply(405, 'Use PUT or DELETE');
+	if (request.method === 'PUT' && env.PUSH_RATE_LIMIT) {
+		const key = request.headers.get('cf-connecting-ip') ?? 'unknown';
+		if (!(await env.PUSH_RATE_LIMIT.limit({ key })).success) return reply(429, 'Too many requests');
+	}
 	if (Number(request.headers.get('content-length') ?? 0) > 512 * 1024)
 		return reply(413, 'Too large');
 	let body: unknown;

@@ -47,14 +47,9 @@ const FORWARD_REQUEST = [
 	'content-encoding',
 	'git-protocol'
 ];
-const FORWARD_RESPONSE = [
-	'content-type',
-	'content-encoding',
-	'cache-control',
-	'expires',
-	'pragma',
-	'www-authenticate'
-];
+const FORWARD_RESPONSE = ['content-type', 'content-encoding', 'www-authenticate'];
+/** Redirects the git proxy follows itself, and only within the same host. */
+const MAX_REDIRECTS = 3;
 
 const OAUTH: Record<string, { token: string; basicAuth: boolean }> = {
 	github: { token: 'https://github.com/login/oauth/access_token', basicAuth: false },
@@ -128,12 +123,37 @@ export default {
 			const value = request.headers.get(name);
 			if (value) headers.set(name, value);
 		}
-		const upstream = await fetch(`https://${host}${path}${url.search}`, {
-			method: request.method,
-			headers,
-			body: request.method === 'POST' ? request.body : null,
-			redirect: 'follow'
-		});
+		// Redirects are followed by hand: only GET (a POST body can't be replayed), only
+		// to the same host over https, so Authorization never goes to another host.
+		let target = new URL(`https://${host}${path}${url.search}`);
+		let upstream: Response;
+		for (let hops = 0; ; hops++) {
+			upstream = await fetch(target.href, {
+				method: request.method,
+				headers,
+				body: request.method === 'POST' ? request.body : null,
+				redirect: 'manual'
+			});
+			if (![301, 302, 303, 307, 308].includes(upstream.status)) break;
+			const location = upstream.headers.get('location');
+			let next: URL | null = null;
+			try {
+				next = location ? new URL(location, target) : null;
+			} catch {
+				// Not a URL: refused below.
+			}
+			if (
+				request.method !== 'GET' ||
+				hops >= MAX_REDIRECTS ||
+				!next ||
+				next.protocol !== 'https:' ||
+				next.host !== target.host ||
+				next.username ||
+				next.password
+			)
+				return deny(502, 'The git host sent a redirect that is not followed', origin);
+			target = next;
+		}
 		const out = cors(origin);
 		for (const name of FORWARD_RESPONSE) {
 			const value = upstream.headers.get(name);
@@ -217,11 +237,30 @@ const DAV_MAX_BODY = 20 * 1024 * 1024;
 
 /** A public host name: not an IP address, not localhost or an internal name. */
 export function isPublicHost(host: string): boolean {
-	const h = host.toLowerCase();
-	if (!/^[a-z0-9.-]+(:\d+)?$/.test(h)) return false;
-	const name = h.replace(/:\d+$/, '');
-	if (!name.includes('.') || /^[\d.]+$/.test(name)) return false;
-	return !/(^|\.)(localhost|local|internal|lan|home\.arpa)$/.test(name);
+	return publicHost(host) !== null;
+}
+
+/**
+ * The host as the URL parser reads it (so 0x7f.0.0.1, 2130706433 and
+ * localhost. are seen for what they are), without a trailing dot; or null
+ * when it is not a public host name.
+ */
+export function publicHost(host: string): string | null {
+	if (!/^[A-Za-z0-9.:[\]%-]+$/.test(host)) return null;
+	let url: URL;
+	try {
+		url = new URL(`https://${host}`);
+	} catch {
+		return null;
+	}
+	if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) return null;
+	const name = url.hostname.replace(/\.+$/, '');
+	// IPv6 literals and (after normalising) IPv4 addresses.
+	if (name.startsWith('[') || /^[\d.]+$/.test(name)) return null;
+	if (!/^[a-z0-9.-]+$/.test(name) || !name.includes('.') || name.split('.').includes(''))
+		return null;
+	if (/(^|\.)(localhost|local|internal|lan|home\.arpa)$/.test(name)) return null;
+	return url.port ? `${name}:${url.port}` : name;
 }
 
 const TOO_LARGE = Symbol('too large');
@@ -257,9 +296,10 @@ export async function readCapped(
 /** /dav/<host>/<path> → https://<host>/<path>, WebDAV methods only. */
 async function dav(request: Request, env: Env, url: URL, origin: string): Promise<Response> {
 	const [, , host, ...rest] = url.pathname.split('/');
-	if (!host || !isPublicHost(host)) return deny(403, 'WebDAV host not allowed', origin);
+	const target = host ? publicHost(host) : null;
+	if (!target) return deny(403, 'WebDAV host not allowed', origin);
 	const allowed = list(env.DAV_HOSTS);
-	if (allowed.length && !allowed.includes(host.toLowerCase()))
+	if (allowed.length && !allowed.includes(target))
 		return deny(403, 'WebDAV host not allowed on this relay', origin);
 	if (!DAV_METHODS.has(request.method)) return deny(405, 'Only WebDAV file requests', origin);
 	if (!request.headers.get('authorization'))
@@ -279,7 +319,7 @@ async function dav(request: Request, env: Env, url: URL, origin: string): Promis
 	const hasBody = request.method === 'PUT' || request.method === 'PROPFIND';
 	const body = hasBody ? await readCapped(request.body, DAV_MAX_BODY) : null;
 	if (body === TOO_LARGE) return deny(413, 'File too large', origin);
-	const upstream = await fetch(`https://${host}${path}`, {
+	const upstream = await fetch(`https://${target}${path}`, {
 		method: request.method,
 		headers,
 		body,

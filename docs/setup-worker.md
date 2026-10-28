@@ -20,8 +20,8 @@ plan is plenty. Nothing here is needed to use Fasti without notifications.
    ```
    It prints `VAPID_PUBLIC_KEY=...` and `VAPID_PRIVATE_KEY=...`. Keep them:
    replacing the pair invalidates every existing subscription.
-5. **Deploy once** so the worker exists (Actions, "Deploy worker", Run
-   workflow; or `cd worker && npm ci && npx wrangler login && npx wrangler deploy`).
+5. **Deploy once** so the worker exists (Actions, "Worker", Run
+   workflow, tick "deploy"; or `cd worker && npm ci && npx wrangler login && npx wrangler deploy`).
    Wrangler prints the address, `https://fasti-worker.<you>.workers.dev`.
 6. **Secrets on the worker** (from `worker/`):
    ```sh
@@ -34,7 +34,9 @@ plan is plenty. Nothing here is needed to use Fasti without notifications.
 7. **Variables** (optional; set in `worker/wrangler.jsonc` `vars`, or in the
    Cloudflare dashboard, which deploys keep):
    - `ALLOWED_ORIGINS`: ships as `https://jackhale98.github.io,http://localhost:4173,http://localhost:5173`.
-     Origins only (no path). Change it if Fasti is served from a custom domain.
+     Origins only (no path). `https://jackhale98.github.io` covers every GitHub Pages
+     project of that user, so once Fasti has a custom domain, replace it with that
+     one origin.
    - `VAPID_SUBJECT`: `mailto:you@example.com` or an https URL, the contact push
      services see.
    - `EXTRA_GIT_HOSTS`: self-hosted git hosts to proxy. `DAV_HOSTS`: if set, the
@@ -44,8 +46,10 @@ plan is plenty. Nothing here is needed to use Fasti without notifications.
    slash, then re-run "Deploy to GitHub Pages". The app needs nothing else for
    push: it fetches the VAPID public key from the worker's `GET /push/key`
    endpoint, so there is no `PUBLIC_VAPID_*` variable.
-9. Optional hardening: a Cloudflare rate-limiting rule on the worker route
-   (for example 300 requests a minute per IP).
+9. Optional hardening. Rate limit for `PUT /push/reminders` per client IP: uncomment
+   the `ratelimits` block in `worker/wrangler.jsonc` (30 a minute) and deploy;
+   over the limit the worker answers 429. Without the `PUSH_RATE_LIMIT` binding
+   there is no limit. A Cloudflare rate-limiting rule on the whole route also works.
 
 Check it: `curl -H 'Origin: https://jackhale98.github.io' <worker>/push/key`
 should answer `{"key":"..."}`. A 501 means the VAPID secrets or Durable Object
@@ -55,7 +59,8 @@ are missing; a 403 means the origin isn't in `ALLOWED_ORIGINS`.
 
 Every request needs an `Origin` header listed in `ALLOWED_ORIGINS`, else 403.
 `OPTIONS` answers 204 with CORS headers. Replies carry `Cache-Control: no-store`
-and `Access-Control-Allow-Origin` set to the caller's origin. Cookies are never
+and `Access-Control-Allow-Origin` set to the caller's origin; the worker forces
+`Cache-Control: no-store` and never passes on a git host's caching headers. Cookies are never
 forwarded. The app calls `${PUBLIC_WORKER_URL}<path>`.
 
 ### Push
@@ -92,8 +97,13 @@ Delivery (per subscription, by a Durable Object alarm): each reminder is POSTed
 to `endpoint` at its `at` (up to 30 s early) with `Authorization: vapid t=<JWT>, k=<public key>`
 (ES256, 12 h expiry), `Content-Encoding: aes128gcm`, `Content-Type: application/octet-stream`,
 `TTL: 300`, `Urgency: high`, and the decoded payload as the body. The schedule
-is deleted when the push service answers 404 or 410, and 14 days after its last
-`PUT`. The app re-sends the schedule on every open or sync.
+is deleted when the push service answers 400, 403, 404 or 410, and 14 days after
+its last `PUT`. After a 429, a 5xx or a network error the message is tried once
+more a minute later if it would still be within its 5 minute TTL, else dropped.
+The Durable Object stores the push `endpoint` as well as the times and sealed
+messages (the endpoint is a capability to push to that browser); it cannot read
+the messages.
+A browser that exceeds the rate limit gets 429 on `PUT`. The app re-sends the schedule on every open or sync.
 
 ### Git proxy
 
@@ -101,7 +111,9 @@ is deleted when the push service answers 404 or 410, and 14 days after its last
 `POST /<host>/<owner>/<repo>.git/git-upload-pack|git-receive-pack`. `host` is
 `github.com`, `gitlab.com`, `bitbucket.org` or in `EXTRA_GIT_HOSTS`. Anything else
 is 403. Only `Accept`, `Authorization`, `Content-Type`, `Content-Encoding` and
-`Git-Protocol` are forwarded; bodies stream through.
+`Git-Protocol` are forwarded; bodies stream through. Redirects are followed by
+the worker, at most 3, for GET only and only to the same host over https, so
+`Authorization` never reaches another host; any other redirect is a 502.
 
 ### OAuth
 
