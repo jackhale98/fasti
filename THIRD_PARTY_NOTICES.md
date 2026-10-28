@@ -59,9 +59,17 @@ Parts of Remind that `remind.wasm` includes under their own terms:
 
 ## Code adapted from Mycelium
 
-Nothing has been copied from Mycelium yet. Before any of its modules are
-copied, their copyright holder records here the grant that lets Fasti use them
-under GPL-2.0-or-later (docs/PLAN.md section 12, step 2).
+Mycelium (https://github.com/jackhale98/mycelium-web) is published under
+GPL-3.0-or-later, and its sync worker under Apache-2.0. Its sole copyright
+holder, who also owns Fasti, confirmed on 2026-10-28 that the parts of
+Mycelium copied into Fasti (its git, sync, storage and push code and its
+worker) may be used, changed and distributed in Fasti under GPL-2.0-or-later.
+Files copied from Mycelium say so in their header.
+
+This grant covers only Mycelium's own code. Third-party code that Mycelium
+uses keeps its own licence and is checked like any other dependency: in
+particular Mycelium's org parser (uniorg, GPL-3.0-or-later) and Dexie
+(Apache-2.0) are not used in Fasti.
 
 ## JavaScript packages in the site
 
