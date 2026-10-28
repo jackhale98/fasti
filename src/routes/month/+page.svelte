@@ -4,7 +4,7 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import ItemRow from '#lib/ui/ItemRow.svelte';
 	import MonthGrid from '#lib/ui/month/MonthGrid.svelte';
-	import { buildGrid, columnNames, holidayChecker } from '#lib/ui/month/model.ts';
+	import { buildGrid, columnNames, holidayChecker, type Slot } from '#lib/ui/month/model.ts';
 	import { app } from '#lib/app/app.svelte.ts';
 	import { dayOf, monthName, weekday } from '#lib/app/format.ts';
 	import { addMonths, calendar } from '#lib/engine/client.ts';
@@ -77,10 +77,27 @@
 				)
 			: []
 	);
+	/**
+	 * The grid of the month before (-1) or after (+1) the visible one, for
+	 * arrow keys that leave the grid: built from Remind's own months, so no
+	 * date arithmetic. Undefined while that month is still loading.
+	 */
+	function neighbour(dir: -1 | 1): Slot[] | undefined {
+		if (!current) return undefined;
+		const m = addMonths(current.month, dir);
+		const visible = at(m);
+		return visible
+			? buildGrid(visible, at(addMonths(m, -1)), at(addMonths(m, 1)), mondayFirst)
+			: undefined;
+	}
 	const names = $derived(current ? columnNames(current, mondayFirst) : []);
 	const isHoliday = $derived(holidayChecker(app.snapshot?.files ?? {}));
 	const selected = $derived(
-		picked && picked.slice(0, 7) === month ? picked : (current?.days[0]?.date ?? null)
+		picked && picked.slice(0, 7) === month
+			? picked
+			: app.today && app.today.date.slice(0, 7) === month
+				? app.today.date
+				: (current?.days[0]?.date ?? null)
 	);
 	const day = $derived(slots.find((s) => s?.date === selected)?.day ?? null);
 	const holidays = $derived(day ? day.entries.filter((e) => isHoliday(e)).map((e) => e.body) : []);
@@ -133,7 +150,7 @@
 	{:else if !current}
 		<p class="status" role="status">Loading the month…</p>
 	{:else}
-		<MonthGrid {slots} {names} {today} {selected} {isHoliday} onselect={select} />
+		<MonthGrid {slots} {names} {today} {selected} {isHoliday} {neighbour} onselect={select} />
 		<div class="legend">
 			<span><i class="lt"></i>Today</span>
 			<span><i class="lw"></i>Day off every week (OMIT Sat Sun)</span>

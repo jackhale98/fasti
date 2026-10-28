@@ -59,8 +59,12 @@
 				const dates = await nextDates(snapshot, { file, line, count: 6, tz });
 				if (!live) return;
 				next = dates;
+				// Today's agenda first, so % substitutions read as Remind prints them
+				// today ("8 days ago", not "today"); a later occurrence that today's
+				// agenda doesn't list falls back to the agenda of its own date.
+				let found = findIn((await agenda(snapshot, { tz })).entries);
 				const day = date ?? dates.dates[0]?.date;
-				const found = findIn((await agenda(snapshot, day ? { date: day, tz } : { tz })).entries);
+				if (!found && day) found = findIn((await agenda(snapshot, { date: day, tz })).entries);
 				if (live) entry = found;
 			} catch (e) {
 				if (live) loadError = e instanceof Error ? e.message : String(e);

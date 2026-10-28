@@ -15,6 +15,7 @@
 		today,
 		selected,
 		isHoliday,
+		neighbour,
 		onselect
 	}: {
 		slots: Slot[];
@@ -23,6 +24,8 @@
 		today: string | null;
 		selected: string | null;
 		isHoliday: (entry: ReminderEntry) => boolean;
+		/** The previous (-1) or next (+1) month's grid, for keys that leave this one. */
+		neighbour?: (dir: -1 | 1) => Slot[] | undefined;
 		onselect: (date: string) => void;
 	} = $props();
 
@@ -48,10 +51,28 @@
 		return text;
 	}
 
-	async function move(date: string) {
+	/**
+	 * The day to focus once its cell exists. Moving into the next or previous
+	 * month re-renders the grid, and that month may still be loading, so the
+	 * focus waits for the cell rather than being lost (keys then stop working).
+	 */
+	let pendingFocus = $state<string | null>(null);
+
+	$effect(() => {
+		const date = pendingFocus;
+		if (!date || !slots.some((s) => s?.date === date)) return;
+		void tick().then(() => {
+			const cell = grid?.querySelector<HTMLElement>(`[data-date="${date}"]`);
+			if (cell) {
+				cell.focus();
+				pendingFocus = null;
+			}
+		});
+	});
+
+	function move(date: string) {
 		onselect(date);
-		await tick();
-		grid?.querySelector<HTMLElement>(`[data-date="${date}"]`)?.focus();
+		pendingFocus = date;
 	}
 
 	function onkeydown(event: KeyboardEvent) {
@@ -71,7 +92,17 @@
 		if (to === undefined) return;
 		event.preventDefault();
 		const target = slots[to];
-		if (target) void move(target.date);
+		if (target) {
+			move(target.date);
+			return;
+		}
+		// Off the grid (Up from the top row, Down from the bottom): the
+		// neighbouring month's grid contains this day too, so step there.
+		if (!date || !neighbour) return;
+		const other = neighbour(to < 0 ? -1 : 1);
+		const at = other?.findIndex((s) => s?.date === date) ?? -1;
+		const beyond = at >= 0 ? other?.[at + (to - current)] : undefined;
+		if (beyond) move(beyond.date);
 	}
 </script>
 

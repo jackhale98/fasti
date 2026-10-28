@@ -28,7 +28,10 @@ export function sections(agenda: AgendaResult, today: string): TodaySections {
 	const rank = (e: ReminderEntry) => e.time ?? Number.POSITIVE_INFINITY;
 	// Array.prototype.sort is stable, so Remind's order holds within a time.
 	now.sort((a, b) => (rank(a) === rank(b) ? 0 : rank(a) < rank(b) ? -1 : 1));
-	overdue.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+	const byDate = (a: ReminderEntry, b: ReminderEntry) =>
+		a.date < b.date ? -1 : a.date > b.date ? 1 : rank(a) - rank(b) || 0;
+	overdue.sort(byDate);
+	headsUp.sort(byDate);
 	return { overdue, today: now, headsUp };
 }
 
