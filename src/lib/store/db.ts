@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * Fasti's IndexedDB schema, on `idb`. Written fresh for Fasti; its shape
+ * (vault records, one row per file with the last-synced base and revision)
+ * follows Mycelium's storage so the Phase 4 sync code can slot in.
+ *
+ * Everything stays in this browser. Provider sign-ins added in Phase 4 live
+ * in the vault record and are sent only to their provider.
+ */
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import type { VaultPath } from '../engine/types';
+import type { Edit } from '../lens/types';
+import type { LineEnding } from './text';
+
+export const DB_NAME = 'fasti';
+export const DB_VERSION = 1;
+
+/** Where a vault's files come from. Only `browser` exists before Phase 4. */
+export type ProviderId = 'browser' | 'github' | 'git' | 'dropbox' | 'onedrive' | 'webdav';
+
+export interface VaultRecord {
+	id: string;
+	name: string;
+	provider: ProviderId;
+	/** The entry Remind is pointed at: a file, or a directory (`''` is the root). */
+	main: VaultPath;
+	/** `Date.now()` when created (bookkeeping, not a reminder date). */
+	createdAt: number;
+	/** `Date.now()` of the last sync, or null. */
+	lastSync: number | null;
+}
+
+/** One file of a vault, as stored. */
+export interface FileRow {
+	vault: string;
+	path: VaultPath;
+	/** The current text, decoded exactly (a BOM stays as U+FEFF). */
+	text: string;
+	/** The text as of the last sync; null when never synced. */
+	base: string | null;
+	/** The provider's revision of `base` (git blob id, Dropbox rev, ETag); null when never synced. */
+	rev: string | null;
+	/** Whether `text` differs from `base` (always true when never synced). */
+	dirty: boolean;
+	eol: LineEnding;
+	finalNewline: boolean;
+	bom: boolean;
+}
+
+/** One change inside an undo step. */
+export type Change =
+	| {
+			kind: 'patch';
+			path: VaultPath;
+			/** Applied to the text before. */
+			edit: Edit;
+			/** Applied to the text after; restores the bytes before. */
+			inverse: Edit;
+			/** Length of the text after, to spot a file changed since (by a sync). */
+			length: number;
+	  }
+	| {
+			/** A whole file created, removed or replaced (import, reset). */
+			kind: 'file';
+			path: VaultPath;
+			before: string | null;
+			after: string | null;
+	  };
+
+/** One undoable step: what the user did, as a list of changes applied in order. */
+export interface UndoStep {
+	label: string;
+	/** `Date.now()` when done (bookkeeping, not a reminder date). */
+	at: number;
+	changes: Change[];
+}
+
+export interface UndoRecord {
+	vault: string;
+	undo: UndoStep[];
+	redo: UndoStep[];
+}
+
+export type WeekStart = 'sunday' | 'monday';
+export type Clock = '12h' | '24h';
+export type Theme = 'system' | 'light' | 'dark';
+
+/** App-wide settings. The main entry belongs to each vault (VaultRecord.main). */
+export interface Settings {
+	/** The vault the app opens. */
+	activeVault: string | null;
+	weekStart: WeekStart;
+	clock: Clock;
+	hideCompletedTodos: boolean;
+	theme: Theme;
+}
+
+export const DEFAULT_SETTINGS: Readonly<Settings> = {
+	activeVault: null,
+	weekStart: 'sunday',
+	clock: '12h',
+	hideCompletedTodos: false,
+	theme: 'system'
+};
+
+/** The Web Push subscription for reminders (Phase 5). */
+export interface PushRecord {
+	/** `PushSubscription.toJSON()`. */
+	subscription: { endpoint: string; expirationTime?: number | null; keys?: Record<string, string> };
+	/** The vault whose reminders are pushed. */
+	vault: string;
+	/** `Date.now()` when subscribed. */
+	createdAt: number;
+}
+
+export interface FastiSchema extends DBSchema {
+	vaults: { key: string; value: VaultRecord };
+	files: { key: [string, VaultPath]; value: FileRow; indexes: { vault: string } };
+	undo: { key: string; value: UndoRecord };
+	/** One record under the key `app`. */
+	settings: { key: 'app'; value: Settings };
+	/** One record under the key `subscription`. */
+	push: { key: 'subscription'; value: PushRecord };
+}
+
+export type FastiDB = IDBPDatabase<FastiSchema>;
+
+/**
+ * Open (and create or upgrade) the database. Each version's step runs once,
+ * in order, so a browser on any older version catches up.
+ */
+export function openFastiDB(name = DB_NAME): Promise<FastiDB> {
+	return openDB<FastiSchema>(name, DB_VERSION, {
+		upgrade(db, oldVersion) {
+			if (oldVersion < 1) {
+				db.createObjectStore('vaults', { keyPath: 'id' });
+				const files = db.createObjectStore('files', { keyPath: ['vault', 'path'] });
+				files.createIndex('vault', 'vault');
+				db.createObjectStore('undo', { keyPath: 'vault' });
+				db.createObjectStore('settings');
+				db.createObjectStore('push');
+			}
+			// Later versions: `if (oldVersion < 2) { ... }`, never editing a step above.
+		}
+	});
+}
+
+export async function getSettings(db: FastiDB): Promise<Settings> {
+	return { ...DEFAULT_SETTINGS, ...(await db.get('settings', 'app')) };
+}
+
+/** Change some settings, keeping the rest. */
+export async function updateSettings(db: FastiDB, patch: Partial<Settings>): Promise<Settings> {
+	const tx = db.transaction('settings', 'readwrite');
+	const next = { ...DEFAULT_SETTINGS, ...(await tx.store.get('app')), ...patch };
+	await tx.store.put(next, 'app');
+	await tx.done;
+	return next;
+}
+
+export function getPush(db: FastiDB): Promise<PushRecord | undefined> {
+	return db.get('push', 'subscription');
+}
+
+export async function setPush(db: FastiDB, record: PushRecord | null): Promise<void> {
+	if (record) await db.put('push', record, 'subscription');
+	else await db.delete('push', 'subscription');
+}
