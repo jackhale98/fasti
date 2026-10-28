@@ -21,3 +21,6 @@ vite.config.ts.timestamp-*
 # Wrangler's local state (worker/)
 .wrangler/
 .dev.vars
+
+# Subagent worktrees (Claude Code)
+.claude/worktrees/
