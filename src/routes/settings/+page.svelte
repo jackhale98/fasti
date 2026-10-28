@@ -2,6 +2,8 @@
 <script lang="ts">
 	import View from '#lib/ui/View.svelte';
 	import { theme, type ThemeChoice } from '#lib/ui/theme.svelte.ts';
+	import Notifications from '#lib/ui/settings/Notifications.svelte';
+	import IcsExport from '#lib/ui/settings/IcsExport.svelte';
 
 	const choices: { value: ThemeChoice; label: string }[] = [
 		{ value: 'system', label: 'Match the system' },
@@ -26,6 +28,16 @@
 			</label>
 		{/each}
 	</fieldset>
+
+	<section class="block" aria-labelledby="notify-h">
+		<h2 id="notify-h">Notifications</h2>
+		<Notifications />
+	</section>
+
+	<section class="block" aria-labelledby="ics-h">
+		<h2 id="ics-h">Calendar export</h2>
+		<IcsExport />
+	</section>
 
 	<section class="about" aria-labelledby="about-h">
 		<h2 id="about-h">About</h2>
@@ -53,6 +65,16 @@
 </View>
 
 <style>
+	.block {
+		margin-top: 28px;
+	}
+	.block h2 {
+		font-size: 13px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--ink-3);
+		margin: 0 0 8px;
+	}
 	.about {
 		margin-top: 28px;
 		color: var(--ink-2);
