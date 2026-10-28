@@ -15,6 +15,7 @@ import {
 	type Schedule
 } from '../../src/lib/notify/schedule';
 import type { AgendaResult, ReminderEntry } from '../../src/lib/engine/types';
+import { uploadHorizon } from '../../src/lib/notify/push';
 import { nodeClient, snapshot } from '../engine/harness';
 import { engineBuilt } from '../engine/remind';
 
@@ -211,8 +212,36 @@ describe.skipIf(!engineBuilt)('buildSchedule (real engine)', () => {
 			horizon: Date.UTC(2026, 9, 30, 0, 0)
 		});
 		expect(cut.notifications.at(-1)?.body).toBe('Early start');
-		expect(cut.truncated).toBe(true);
+		// Cut by the horizon, not the cap: not "only the first 64 fit".
+		expect(cut.truncated).toBe(false);
 		expect(cut.through).toBe('2026-11-01');
+	});
+
+	it('reports the 8-day horizon without calling it truncated', async () => {
+		const late = snapshot({ 'reminders.rem': 'REM AT 23:00 MSG Late\n' });
+		// Opened at 10:00 in Berlin (09:00 UTC).
+		const s = await buildSchedule(client, late, {
+			tz,
+			now,
+			horizon: uploadHorizon(Date.UTC(2026, 9, 28, 9, 0))
+		});
+		expect(s.notifications.map((n) => n.date)).toEqual([
+			'2026-10-28',
+			'2026-10-29',
+			'2026-10-30',
+			'2026-10-31',
+			'2026-11-01',
+			'2026-11-02',
+			'2026-11-03',
+			'2026-11-04'
+		]);
+		expect(s.truncated).toBe(false);
+		expect(s.through).toBe('2026-11-04');
+	});
+
+	it('stops at the cap even when the horizon is far', async () => {
+		const capped = await buildSchedule(client, vault, { tz, now, max: 9, horizon: Infinity });
+		expect(capped.truncated).toBe(true);
 	});
 
 	it('follows the time zone it is run in', async () => {

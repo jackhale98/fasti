@@ -32,9 +32,11 @@ import { WORKER_URL } from './config.ts';
 import { fromBase64Url } from './encrypt.ts';
 import { firstShowing, pruneShown, type NotificationPayload } from './payload.ts';
 import {
-	HORIZON_MS,
 	deleteSchedule,
 	serverKey,
+	pushOnOpen,
+	uploadHorizon,
+	withTest,
 	uploadSchedule,
 	type Outgoing,
 	type SubscriptionKeys
@@ -46,6 +48,8 @@ const ENABLED_KEY = 'fasti:notifications';
 const STALE_MS = 15 * 60_000;
 /** Upload this long after the last edit. */
 const UPLOAD_DEBOUNCE_MS = 5000;
+/** A push test is due this long after the click. */
+const TEST_DELAY_MS = 5000;
 /** Re-plan local timers this long after the last edit. */
 const PLAN_DEBOUNCE_MS = 400;
 
@@ -279,7 +283,7 @@ class Notifications {
 		if (this.#planning && this.#planningHash === snapshot.hash) return this.#planning;
 		const run = buildSchedule(engine(), snapshot, {
 			tz: app.tz,
-			horizon: Date.now() + HORIZON_MS - 60_000
+			horizon: uploadHorizon()
 		}).finally(() => {
 			if (this.#planning === run) this.#planning = null;
 		});
@@ -350,14 +354,23 @@ class Notifications {
 		try {
 			const record = await this.#record();
 			this.push = record;
-			if (!record || !this.pushConfigured) return;
-			if (this.permission !== 'granted') {
+			const action = pushOnOpen({
+				configured: this.pushConfigured,
+				supported: this.support === 'full',
+				enabled: this.enabled,
+				permission: this.permission,
+				stored: !!record
+			});
+			if (action === 'none') return;
+			if (action === 'drop') {
 				// Permission withdrawn in the browser's settings: nothing can be shown.
-				await deleteSchedule(WORKER_URL!, record.subscription.endpoint);
+				await deleteSchedule(WORKER_URL!, record!.subscription.endpoint);
 				await this.#save(null);
 				return;
 			}
-			await this.#ensureSubscription(record);
+			// 'subscribe' (turned on, but subscribing failed last time, the worker
+			// down, say) or 'refresh': make sure of the subscription, then upload.
+			this.push = await this.#ensureSubscription(record);
 			await app.start();
 			await this.upload();
 		} catch (e) {
@@ -405,19 +418,12 @@ class Notifications {
 	}
 
 	/** Uploads the next 8 days (and an optional extra message) to the worker. */
-	async upload(extra: Outgoing[] = []): Promise<void> {
+	async upload(): Promise<void> {
 		const record = this.push;
 		if (!record || !this.pushConfigured || !this.active) return;
 		const schedule = await this.#buildSchedule();
 		if (!schedule) return;
-		const list: Outgoing[] = [
-			...extra,
-			...schedule.notifications.map((n) => ({
-				at: n.at,
-				payload: toPayload(n, app.settings.clock)
-			}))
-		].slice(0, 64);
-		await uploadSchedule(WORKER_URL!, record.subscription, list);
+		await uploadSchedule(WORKER_URL!, record.subscription, this.#outgoing(schedule));
 		this.error = null;
 		await this.#save({
 			...record,
@@ -426,6 +432,33 @@ class Notifications {
 			truncated: schedule.truncated,
 			uploadedAt: Date.now()
 		});
+	}
+
+	#outgoing(schedule: Schedule): Outgoing[] {
+		return schedule.notifications.map((n) => ({
+			at: n.at,
+			payload: toPayload(n, app.settings.clock)
+		}));
+	}
+
+	/**
+	 * Sends a test through push. The worker's list is replaced as a whole, so
+	 * the test briefly takes a slot (the last real one, if all 64 are used);
+	 * once it's due, the real schedule is uploaded again. The stored summary
+	 * (through, count) always describes the real schedule.
+	 */
+	async sendTest(payload: NotificationPayload): Promise<void> {
+		const record = this.push;
+		if (!record) return;
+		const schedule = await this.#buildSchedule();
+		const at = Date.now() + TEST_DELAY_MS;
+		const real = schedule ? this.#outgoing(schedule) : [];
+		await uploadSchedule(WORKER_URL!, record.subscription, withTest(real, { at, payload }));
+		if (this.#uploadTimer) clearTimeout(this.#uploadTimer);
+		this.#uploadTimer = setTimeout(() => {
+			this.#uploadTimer = null;
+			void this.upload().catch((e: unknown) => (this.error = message(e)));
+		}, TEST_DELAY_MS + 60_000);
 	}
 
 	/** Turns notifications on (from a click: asks for permission). */
@@ -503,7 +536,7 @@ class Notifications {
 		};
 		try {
 			if (this.push && this.pushConfigured && this.active) {
-				await this.upload([{ at: Date.now() + 5000, payload }]);
+				await this.sendTest(payload);
 				this.note = 'A test notification is on its way through Fasti’s server.';
 			} else if (await showNotification(payload, false)) {
 				this.note = 'Test notification sent.';

@@ -104,7 +104,11 @@ export function installNotificationHandlers(scope: NotificationScope): void {
 				const windows = list as WindowClientLike[];
 				const open = windows.find((w) => w.url.startsWith(reg.scope));
 				if (!open) return clients.openWindow(target);
-				return open.focus();
+				// Show the notification's page in the open window, then bring it forward.
+				const go = open.url !== target && open.navigate ? open.navigate(target) : null;
+				return Promise.resolve(go)
+					.catch(() => null)
+					.then(() => open.focus());
 			})
 		);
 	});

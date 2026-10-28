@@ -89,7 +89,10 @@ export interface Schedule {
 	 * of the window, or earlier when the cap or `horizon` cut it short.
 	 */
 	through: IsoDate;
-	/** True when some notifications in the window were left out. */
+	/**
+	 * True when the 64 cap left notifications out. Notifications past
+	 * `horizon` only move `through` earlier; they don't set this.
+	 */
 	truncated: boolean;
 	/** Epoch ms of the start of tomorrow (Remind's next today), for re-planning. */
 	nextDay: number | null;
@@ -360,13 +363,14 @@ export async function buildSchedule(
 	};
 
 	const notifications: ScheduledNotification[] = [];
-	let firstDropped: number | null = planned.length > max ? max : null;
+	const capped = planned.length > max ? max : null;
+	let horizonCut: number | null = null;
 	for (let i = 0; i < head.length; i++) {
 		const p = head[i]!;
 		const at = clock[i];
 		if (at === null || at === undefined) continue;
 		if (options.horizon !== undefined && at > options.horizon) {
-			firstDropped ??= i;
+			horizonCut = i;
 			break;
 		}
 		const date = days[p.day]!;
@@ -382,6 +386,8 @@ export async function buildSchedule(
 			line: p.entry.line
 		});
 	}
+	// The first notification left out, by the horizon or by the cap.
+	const firstDropped = horizonCut ?? capped;
 	let through = days[days.length - 1]!;
 	if (firstDropped !== null) {
 		const day = planned[firstDropped]!.day;
@@ -392,7 +398,7 @@ export async function buildSchedule(
 		now,
 		notifications,
 		through,
-		truncated: firstDropped !== null,
+		truncated: horizonCut === null && capped !== null,
 		nextDay
 	};
 }
