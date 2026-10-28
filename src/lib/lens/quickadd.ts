@@ -55,12 +55,18 @@ export interface QuickModel {
 	duration: number | null;
 	warn: number;
 	warnAll: boolean;
-	omitMode: '' | 'SKIP';
+	omitMode: '' | 'SKIP' | 'BEFORE' | 'AFTER';
 	until: Ymd | null;
 	todo: boolean;
 	countdown: boolean;
 	/** True when something besides the message was understood. */
 	recognised?: boolean;
+	/**
+	 * Date-like words that were typed but are not a real date Remind can use
+	 * ("31 Feb", "2026-13-45", a year outside 1990 to 2075). The UI flags them;
+	 * the model's date is then left at today.
+	 */
+	refused?: string[];
 }
 
 /* The calendar step. Day numbers are days since 1970-01-01 (UTC). */
@@ -109,9 +115,20 @@ const ORDW: Record<string, number | 'last'> = {
 	last: 'last'
 };
 
-/** True for a real calendar date; used only to refuse impossible input. */
+/** Remind's supported years. */
+export const MIN_YEAR = 1990;
+export const MAX_YEAR = 2075;
+
+/** True for a real calendar date Remind can use; used only to refuse impossible input. */
 function validYmd(y: number, m: number, d: number): boolean {
-	return m >= 1 && m <= 12 && d >= 1 && d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
+	return (
+		y >= MIN_YEAR &&
+		y <= MAX_YEAR &&
+		m >= 1 &&
+		m <= 12 &&
+		d >= 1 &&
+		d <= new Date(Date.UTC(y, m, 0)).getUTCDate()
+	);
 }
 
 const p2 = (v: number): string => String(v).padStart(2, '0');
@@ -144,13 +161,29 @@ export function blank(today: Ymd): QuickModel {
 export function parse(input: string, today: Ymd): QuickModel {
 	const m = blank(today);
 	let s = ' ' + input.trim() + ' ';
-	// A callback returning false rejects the match (nothing is consumed).
+	// A callback returning false rejects that match (nothing is consumed) and
+	// the next match of the same pattern is tried.
 	const take = (re: RegExp, fn: (r: Match) => void | false): boolean => {
-		const r = re.exec(s) as Match | null;
-		if (!r) return false;
-		if (fn(r) === false) return false;
-		s = s.slice(0, r.index) + ' ' + s.slice(r.index + r[0].length);
-		return true;
+		const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
+		let r: Match | null;
+		while ((r = g.exec(s) as Match | null)) {
+			if (fn(r) !== false) {
+				s = s.slice(0, r.index) + ' ' + s.slice(r.index + r[0].length);
+				return true;
+			}
+			if (r[0] === '') g.lastIndex++;
+		}
+		return false;
+	};
+	const refused: string[] = [];
+	// Remember a date-like phrase that was refused, for the UI to flag.
+	const refuse = (r: Match, only?: string): false => {
+		const t = (only ?? r[0])
+			.trim()
+			.replace(/^(?:on|until|till|through|every|each|yearly|annually|the|year)\s+/gi, '')
+			.trim();
+		if (t && !refused.includes(t)) refused.push(t);
+		return false;
 	};
 	const T = calendar.num(today.y, today.m, today.d);
 	const nextWd = (w: number, strictlyAfter: boolean): Ymd => {
@@ -191,17 +224,17 @@ export function parse(input: string, today: Ymd): QuickModel {
 	});
 	take(/\b(?:until|till|through) (\d{4}-\d{2}-\d{2})\b/i, (r) => {
 		const u = fromIso(r[1]);
-		if (!u) return false;
+		if (!u) return refuse(r);
 		m.until = u;
 	});
 	take(new RegExp(`\\b(?:until|till|through) (\\d{1,2})(?:st|nd|rd|th)? ${MORE}\\b`, 'i'), (r) => {
 		const u = dateFrom(r[1], moOf(r[2]));
-		if (!u) return false;
+		if (!u) return refuse(r);
 		m.until = u;
 	});
 	take(new RegExp(`\\b(?:until|till|through) ${MORE} (\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i'), (r) => {
 		const u = dateFrom(r[2], moOf(r[1]));
-		if (!u) return false;
+		if (!u) return refuse(r);
 		m.until = u;
 	});
 	// time
@@ -239,7 +272,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 			/\bevery (\d+) (day|week)s?(?: (?:starting|from) (\d{4}-\d{2}-\d{2}))?\b/i,
 			(r) => {
 				const start = r[3] ? fromIso(r[3]) : null;
-				if (r[3] && !start) return false;
+				if (r[3] && !start) return refuse(r, r[3]);
 				m.kind = 'interval';
 				m.interval = +r[1] * (r[2][0]!.toLowerCase() === 'w' ? 7 : 1);
 				if (start) m.date = start;
@@ -304,7 +337,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 		[
 			/\b(?:every|each|yearly|annually) (?:year )?(?:on )?(\d{1,2})(?:st|nd|rd|th)? MO\b/i,
 			(r) => {
-				if (!validYmd(2024, moOf(r[2]), +r[1])) return false;
+				if (!validYmd(2024, moOf(r[2]), +r[1])) return refuse(r);
 				m.kind = 'yearly';
 				m.day = +r[1];
 				m.month = moOf(r[2]);
@@ -313,7 +346,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 		[
 			/\b(?:every|each|yearly|annually) (?:year )?(?:on )?MO (\d{1,2})(?:st|nd|rd|th)?\b/i,
 			(r) => {
-				if (!validYmd(2024, moOf(r[1]), +r[2])) return false;
+				if (!validYmd(2024, moOf(r[1]), +r[2])) return refuse(r);
 				m.kind = 'yearly';
 				m.day = +r[2];
 				m.month = moOf(r[1]);
@@ -373,7 +406,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 			if (
 				take(re2, (r) => {
 					n = fn(r);
-					if (!n) return false;
+					if (!n) return refuse(r);
 				})
 			) {
 				m.date = n!;
@@ -400,6 +433,7 @@ export function parse(input: string, today: Ymd): QuickModel {
 	msg = msg.replace(/^[,;:\-–\s]+|[,;:\-–\s]+$/g, '');
 	m.msg = msg ? msg[0]!.toUpperCase() + msg.slice(1) : '';
 	m.recognised = found || m.time != null;
+	if (refused.length) m.refused = refused;
 	return m;
 }
 
