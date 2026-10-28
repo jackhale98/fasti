@@ -1,0 +1,65 @@
+name: Lighthouse
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    uses: ./.github/workflows/engine.yml
+
+  lighthouse:
+    name: lighthouse (${{ matrix.preset }})
+    needs: engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [mobile, desktop]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - if: needs.engine.outputs.built == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: remind-wasm
+          path: static/engine/
+
+      - run: npm run build
+
+      - name: Install Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      # Thresholds live in lighthouserc.cjs: performance >= 0.9, accessibility = 1,
+      # best-practices >= 0.95, SEO >= 0.9, three runs per URL.
+      - name: Lighthouse CI (${{ matrix.preset }})
+        run: npx lhci autorun
+        env:
+          LH_PRESET: ${{ matrix.preset }}
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-${{ matrix.preset }}
+          path: .lighthouseci/
+          retention-days: 7

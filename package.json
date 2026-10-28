@@ -20,7 +20,10 @@
 		"test:e2e": "playwright test",
 		"licenses": "node scripts/check-licenses.mjs",
 		"engine:build": "engine/build.sh",
-		"spdx": "node scripts/check-spdx.mjs"
+		"spdx": "node scripts/check-spdx.mjs",
+		"lighthouse": "npm run lighthouse:mobile && npm run lighthouse:desktop",
+		"lighthouse:mobile": "LH_PRESET=mobile lhci autorun",
+		"lighthouse:desktop": "LH_PRESET=desktop lhci autorun"
 	},
 	"imports": {
 		"#lib/*": "./src/lib/*"
@@ -41,6 +44,7 @@
 	"devDependencies": {
 		"@axe-core/playwright": "^4.14.0",
 		"@eslint/js": "^10.0.1",
+		"@lhci/cli": "^0.15.1",
 		"@playwright/test": "^1.64.1",
 		"@sveltejs/adapter-static": "^4.0.0",
 		"@sveltejs/kit": "^3.1.0",

@@ -20,6 +20,8 @@ export default ts.config(
 			'.cache/',
 			'.lighthouseci/',
 			'worker/.wrangler/',
+			// Lighthouse CI reads CommonJS config.
+			'lighthouserc.cjs',
 			// Subagent worktrees: whole copies of the repo.
 			'.claude/'
 		]
