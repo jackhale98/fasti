@@ -151,12 +151,18 @@
 								{#each kinds.slice(0, 4) as kind, i (i)}<i class={kind}></i>{/each}
 							</span>
 							<span class="lbls" aria-hidden="true">
+								<!-- As many labels as the cell's height allows (container queries below),
+								     then "+N more"; fin marks the day's last entry. -->
 								{#each slot.day.entries.slice(0, 3) as entry, i (i)}
-									<span class={kinds[i]}>{entry.body || '(no message)'}</span>
+									<span class="{kinds[i]} s{i + 1}" class:fin={i === slot.day.entries.length - 1}
+										>{entry.body || '(no message)'}</span
+									>
 								{/each}
-								{#if slot.day.entries.length > 3}
-									<em>+{slot.day.entries.length - 3} more</em>
-								{/if}
+								{#each [0, 1, 2, 3] as level (level)}
+									{#if slot.day.entries.length > (level < 3 ? level + 1 : 3)}
+										<em class="e{level}">+{slot.day.entries.length - level} more</em>
+									{/if}
+								{/each}
 							</span>
 						</div>
 					</div>
@@ -293,19 +299,14 @@
 		display: none;
 	}
 	@media (min-width: 720px) {
-		.grid {
-			height: auto;
-			display: block;
-		}
 		.cell {
 			padding: 6px;
 		}
 		.extras {
 			padding: 38px 6px 0;
 		}
-		.gc,
-		.pending {
-			min-height: 108px;
+		.gc {
+			container-type: size;
 		}
 		.dn {
 			align-self: flex-start;
@@ -322,6 +323,11 @@
 		}
 		.dots {
 			display: none;
+		}
+		@container (max-height: 49.99px) {
+			.dots {
+				display: flex;
+			}
 		}
 		.lbls {
 			display: flex;
@@ -355,8 +361,65 @@
 		.lbls em {
 			font-style: normal;
 			font-size: 11px;
+			line-height: 16px;
 			color: var(--ink-3);
 			padding-left: 5px;
+		}
+		/* A cell never grows its row: labels (19 px each) and the "+N more"
+		   line (16 px) show only where the height below the day number fits. */
+		.lbls span,
+		.lbls em {
+			display: none;
+		}
+		@container (min-height: 69px) {
+			.s1 {
+				display: block;
+			}
+		}
+		@container (min-height: 53px) {
+			.s1.fin {
+				display: block;
+			}
+		}
+		@container (min-height: 88px) {
+			.s2 {
+				display: block;
+			}
+		}
+		@container (min-height: 72px) {
+			.s2.fin {
+				display: block;
+			}
+		}
+		@container (min-height: 107px) {
+			.s3 {
+				display: block;
+			}
+		}
+		@container (min-height: 91px) {
+			.s3.fin {
+				display: block;
+			}
+		}
+		@container (min-height: 50px) and (max-height: 68.99px) {
+			.e0 {
+				display: block;
+			}
+		}
+		@container (min-height: 69px) and (max-height: 87.99px) {
+			.e1 {
+				display: block;
+			}
+		}
+		@container (min-height: 88px) and (max-height: 106.99px) {
+			.e2 {
+				display: block;
+			}
+		}
+		@container (min-height: 107px) {
+			.e3 {
+				display: block;
+			}
 		}
 	}
 </style>

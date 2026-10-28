@@ -28,7 +28,10 @@
 	let dir = $state<1 | -1>(1);
 	/** A day whose cell should take keyboard focus once its grid is on screen. */
 	let focusDate = $state<string | null>(null);
+	/** Below 960 px: the stationary grid with the day drawer (no inspector panel there). */
 	let phone = $state(false);
+	/** Wide enough for the inspector panel; the day's list lives there (or beside the grid). */
+	const desktop = $derived(!phone);
 	let expanded = $state(false);
 	// The expanded drawer covers the screen; the FAB would float over its list.
 	$effect(() => {
@@ -272,7 +275,7 @@
 		if (page) top = Math.round(page.getBoundingClientRect().top + window.scrollY);
 	}
 	onMount(() => {
-		const mq = matchMedia('(max-width: 719.98px)');
+		const mq = matchMedia('(max-width: 959.98px)');
 		phone = mq.matches;
 		const change = () => {
 			phone = mq.matches;
@@ -289,6 +292,14 @@
 			ro.disconnect();
 		};
 	});
+
+	// On desktop the day's list lives in the inspector panel while no reminder is
+	// selected; with the panel hidden it sits beside the grid instead.
+	$effect(() => {
+		shell.panel = desktop && !shell.inspectorHidden ? sidepanel : null;
+		return () => (shell.panel = null);
+	});
+	const sideBeside = $derived(desktop && shell.inspectorHidden);
 
 	/** The collapsed drawer's one-line preview of the day. */
 	const preview = $derived.by(() => {
@@ -316,6 +327,23 @@
 	</ul>
 {/snippet}
 
+{#snippet sidepanel()}
+	<section class="sec" aria-labelledby="day-h">
+		<div class="sec-h">{@render dayheading()}</div>
+		{@render daylist()}
+	</section>
+	{@render legend()}
+{/snippet}
+
+{#snippet legend()}
+	<div class="legend">
+		<span><i class="lt"></i>Today</span>
+		<span><i class="lw"></i>Day off every week (OMIT Sat Sun)</span>
+		<span><i class="ld"></i>Holiday (OMIT date)</span>
+		<span class="nlegend"><b>N</b>Nefastus: a day Remind omits</span>
+	</div>
+{/snippet}
+
 {#snippet dayheading()}
 	{#if selected}
 		<h2 id="day-h" data-testid="day-heading">
@@ -330,10 +358,7 @@
 {/snippet}
 
 <div class="page" bind:this={page} style:--top="{top}px">
-	<header class="vh-head">
-		<p class="eyebrow">Month</p>
-		<h1 class="display">Month</h1>
-	</header>
+	<h1 class="vh-head">Month</h1>
 
 	{#if month}
 		<div class="monthhead">
@@ -357,47 +382,40 @@
 	{:else if !ready || !month}
 		<p class="status" role="status">Loading the month…</p>
 	{:else}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="stage"
-			inert={expanded}
-			onpointerdown={swipeDown}
-			onpointermove={swipeMove}
-			onpointerup={swipeEnd}
-			onpointercancel={swipeEnd}
-			onclickcapture={swipeClick}
-		>
-			{#key month}
-				{@const m = month}
-				{@const shown = at(m)}
-				<div class="panel" in:slide={1} out:slide={-1} onoutrostart={retire}>
-					<MonthGrid
-						slots={gridFor(m)}
-						names={shown ? columnNames(shown, mondayFirst) : lastNames}
-						{today}
-						{selected}
-						{isHoliday}
-						neighbour={(d) => neighbour(m, d)}
-						{focusDate}
-						onfocused={() => (focusDate = null)}
-						onmove={move}
-						onselect={select}
-					/>
-				</div>
-			{/key}
-		</div>
-		{#if !phone}
-			<div class="legend">
-				<span><i class="lt"></i>Today</span>
-				<span><i class="lw"></i>Day off every week (OMIT Sat Sun)</span>
-				<span><i class="ld"></i>Holiday (OMIT date)</span>
-				<span class="nlegend"><b>N</b>Nefastus: a day Remind omits</span>
+		<div class="body">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="stage"
+				inert={expanded}
+				onpointerdown={swipeDown}
+				onpointermove={swipeMove}
+				onpointerup={swipeEnd}
+				onpointercancel={swipeEnd}
+				onclickcapture={swipeClick}
+			>
+				{#key month}
+					{@const m = month}
+					{@const shown = at(m)}
+					<div class="panel" in:slide={1} out:slide={-1} onoutrostart={retire}>
+						<MonthGrid
+							slots={gridFor(m)}
+							names={shown ? columnNames(shown, mondayFirst) : lastNames}
+							{today}
+							{selected}
+							{isHoliday}
+							neighbour={(d) => neighbour(m, d)}
+							{focusDate}
+							onfocused={() => (focusDate = null)}
+							onmove={move}
+							onselect={select}
+						/>
+					</div>
+				{/key}
 			</div>
-			<section class="sec" aria-labelledby="day-h">
-				<div class="sec-h">{@render dayheading()}</div>
-				{@render daylist()}
-			</section>
-		{/if}
+			{#if sideBeside}
+				<aside class="beside" aria-label="Selected day">{@render sidepanel()}</aside>
+			{/if}
+		</div>
 	{/if}
 </div>
 
@@ -455,23 +473,24 @@
 			max(16px, env(safe-area-inset-left, 0px));
 	}
 	.vh-head {
-		margin-bottom: 22px;
-	}
-	.eyebrow {
-		font-size: 11.5px;
-		font-weight: 700;
-		letter-spacing: 0.09em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		position: absolute;
+		width: 1px;
+		height: 1px;
 		margin: 0;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+		font-size: 1px;
 	}
-	.display {
-		font-family: var(--font-display);
-		font-weight: 400;
-		font-size: clamp(34px, 9vw, 48px);
-		line-height: 1.02;
-		letter-spacing: -0.015em;
-		margin: 4px 0 0;
+	.body {
+		display: flex;
+		gap: 16px;
+		flex: 1;
+		min-height: 0;
+		flex-direction: column;
+	}
+	.beside {
+		display: none;
 	}
 	.monthhead {
 		display: flex;
@@ -613,15 +632,52 @@
 		border-bottom: 1px solid var(--rule);
 	}
 	@media (min-width: 960px) {
+		/* Desktop: the page fills main (which scrolls); header, weekdays and six
+		   rows share its height, so the whole month shows without scrolling. */
 		.page {
-			padding: 32px 40px 24px;
+			box-sizing: border-box;
+			height: 100%;
+			padding: 16px 28px 8px;
+			display: flex;
+			flex-direction: column;
+		}
+		.monthhead {
+			flex: none;
+			margin-bottom: 10px;
+		}
+		.mh {
+			font-size: 26px;
+		}
+		.iconbtn {
+			height: 38px;
+		}
+		.stage {
+			flex: 1;
+			min-height: 0;
+			grid-template-rows: minmax(0, 1fr);
+		}
+		.body {
+			flex-direction: row;
+		}
+		.beside {
+			display: block;
+			flex: none;
+			width: 300px;
+			overflow-y: auto;
+			padding-right: 2px;
+		}
+		.sec {
+			margin-top: 0;
+		}
+		.legend {
+			margin-top: 18px;
 		}
 	}
 
 	/* Phones: a stationary page. The header, weekdays and six week rows fill
 	   what lies between the top bar and the drawer; the drawer is docked above
 	   the tab bar. --top (the page's offset below the top bar) is measured. */
-	@media (max-width: 719.98px) {
+	@media (max-width: 959.98px) {
 		.page {
 			--col-h: 116px;
 			--avail: calc(100dvh - var(--top) - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
@@ -633,15 +689,6 @@
 			padding-bottom: calc(var(--col-h) + 8px);
 			display: flex;
 			flex-direction: column;
-		}
-		.vh-head {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			margin: -1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
 		}
 		.monthhead {
 			margin-bottom: 8px;

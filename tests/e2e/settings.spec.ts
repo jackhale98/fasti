@@ -14,7 +14,7 @@ async function thursdayList(page: Page) {
 	await page.goto('/month');
 	await expect(page.getByTestId('day-cell')).toHaveCount(42, { timeout: 30_000 });
 	await page.locator('[data-testid="day-cell"]:not(.out)[aria-label^="Thursday"]').first().click();
-	return page.getByRole('main');
+	return page.locator('main, aside.panel, .drawer'); // the list sits in the inspector panel on desktop
 }
 
 test('sections come in order with labelled controls', async ({ page }) => {
