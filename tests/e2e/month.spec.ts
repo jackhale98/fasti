@@ -245,6 +245,68 @@ test.describe('phones', () => {
 		await expect(handle).toHaveAttribute('aria-expanded', 'false');
 	});
 
+	test('swiping up on the grid expands the drawer; down on the grid does nothing', async ({
+		page
+	}) => {
+		await open(page);
+		const handle = handleOf(page);
+		const heading = page.getByTestId('month-heading');
+		const start = await heading.innerText();
+		const day = await page.getByTestId('day-heading').innerText();
+		const grid = (await page.getByRole('grid', { name: 'Month' }).boundingBox())!;
+		const x = grid.x + grid.width / 2;
+		const vertical = async (from: number, to: number) => {
+			await page.mouse.move(x, from);
+			await page.mouse.down();
+			await page.mouse.move(x + 3, (from + to) / 2, { steps: 5 });
+			await page.mouse.move(x + 4, to, { steps: 5 });
+			await page.mouse.up();
+		};
+		await vertical(grid.y + grid.height - 40, grid.y + grid.height - 240);
+		await expect(handle).toHaveAttribute('aria-expanded', 'true');
+		// Neither the month nor the selected day changed.
+		await expect(heading).toHaveText(start);
+		await expect(page.getByTestId('day-heading')).toHaveText(day);
+		await page.keyboard.press('Escape');
+		await expect(handle).toHaveAttribute('aria-expanded', 'false');
+		await vertical(grid.y + 40, grid.y + 240);
+		await expect(handle).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	test('pulling the expanded list down from its top collapses the drawer', async ({ page }) => {
+		await open(page);
+		await expandIfPhone(page);
+		await page.waitForTimeout(300); // let the 200 ms transition finish
+		const list = (await page.locator('#day-list').boundingBox())!;
+		const x = Math.round(list.x + list.width / 2);
+		const y0 = Math.round(list.y + 20);
+		const cdp = await page.context().newCDPSession(page);
+		const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', y?: number) =>
+			cdp.send('Input.dispatchTouchEvent', {
+				type,
+				touchPoints: y === undefined ? [] : [{ x, y }]
+			});
+		const pull = async () => {
+			await touch('touchStart', y0);
+			for (let i = 1; i <= 10; i++) await touch('touchMove', y0 + i * 25);
+			await touch('touchEnd');
+		};
+		// Scrolled down, the same pull scrolls the list back instead.
+		const listEl = page.locator('#day-list');
+		await listEl.evaluate((el) => {
+			const ul = el.querySelector('ul')!;
+			const row = ul.firstElementChild!;
+			for (let i = 0; i < 20; i++) ul.append(row.cloneNode(true));
+			el.scrollTop = 120;
+		});
+		await pull();
+		await page.waitForTimeout(300);
+		await expect(handleOf(page)).toHaveAttribute('aria-expanded', 'true');
+		await listEl.evaluate((el) => (el.scrollTop = 0));
+		await pull();
+		await expect(handleOf(page)).toHaveAttribute('aria-expanded', 'false');
+	});
+
 	test('the expanded list scrolls inside the drawer, with the FAB hidden', async ({ page }) => {
 		await open(page);
 		await expandIfPhone(page);

@@ -184,24 +184,44 @@
 	/** The month sliding out is no longer interactive. */
 	const retire = (e: Event) => ((e.currentTarget as HTMLElement).inert = true);
 
-	// Swipe the grid sideways to change month (phones).
-	let swipe: { x: number; y: number; done: boolean } | null = null;
+	// Swipe the grid (phones): sideways changes month, up or down drags the
+	// drawer. The first 10 px decide which.
+	let swipe: { x: number; y: number; t: number; axis: 'x' | 'y' | null; done: boolean } | null =
+		null;
 	let swallowClick = false;
 	function swipeDown(e: PointerEvent) {
 		swallowClick = false;
-		swipe = phone && e.isPrimary ? { x: e.clientX, y: e.clientY, done: false } : null;
+		swipe =
+			phone && e.isPrimary
+				? { x: e.clientX, y: e.clientY, t: e.timeStamp, axis: null, done: false }
+				: null;
 	}
 	function swipeMove(e: PointerEvent) {
 		if (!swipe || swipe.done) return;
 		const dx = e.clientX - swipe.x;
 		const dy = e.clientY - swipe.y;
-		if (Math.abs(dx) > 48 && Math.abs(dx) > 1.5 * Math.abs(dy)) {
+		if (!swipe.axis) {
+			if (Math.max(Math.abs(dx), Math.abs(dy)) < 10) return;
+			swipe.axis = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x';
+			if (swipe.axis === 'y') {
+				swallowClick = true;
+				beginDrag(swipe.y, swipe.t);
+			}
+		}
+		if (swipe.axis === 'y') moveDrag(e.clientY);
+		else if (Math.abs(dx) > 48 && Math.abs(dx) > 1.5 * Math.abs(dy)) {
 			swipe.done = true;
 			swallowClick = true;
 			step(dx < 0 ? 1 : -1);
 		}
 	}
-	const swipeEnd = () => (swipe = null);
+	function swipeEnd(e: PointerEvent) {
+		if (swipe?.axis === 'y') {
+			if (e.type === 'pointercancel') dragCancel();
+			else endDrag(e.clientY, e.timeStamp);
+		}
+		swipe = null;
+	}
 	function swipeClick(e: MouseEvent) {
 		if (!swallowClick) return;
 		swallowClick = false;
@@ -219,33 +239,40 @@
 	function collapsedH() {
 		return parseFloat(getComputedStyle(drawer!).getPropertyValue('--col-h')) || 116;
 	}
-	function dragStart(e: PointerEvent) {
-		if (!drawer || !e.isPrimary) return;
+	/** A drag of the drawer from wherever it rests, by the handle, the grid or the list. */
+	function beginDrag(y: number, t: number) {
+		if (!drawer) return;
 		const max = drawer.offsetHeight - collapsedH();
-		drag = { y: e.clientY, t: e.timeStamp, base: expanded ? 0 : max, max, moved: false };
-		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		drag = { y, t, base: expanded ? 0 : max, max, moved: false };
 	}
-	function dragMove(e: PointerEvent) {
+	function moveDrag(y: number) {
 		if (!drag) return;
-		const dy = e.clientY - drag.y;
+		const dy = y - drag.y;
 		if (!drag.moved && Math.abs(dy) < 6) return;
 		drag.moved = true;
 		dragY = Math.min(drag.max, Math.max(0, drag.base + dy));
 	}
-	function dragEnd(e: PointerEvent) {
-		if (!drag) return;
-		const dy = e.clientY - drag.y;
-		const fast = Math.abs(dy) / Math.max(1, e.timeStamp - drag.t) > 0.5;
+	/** Ends a drag, toggling the drawer if it went far or fast enough; false when it never moved (a tap). */
+	function endDrag(y: number, t: number): boolean {
+		if (!drag) return false;
+		const dy = y - drag.y;
+		const fast = Math.abs(dy) / Math.max(1, t - drag.t) > 0.5;
 		const moved = drag.moved;
 		drag = null;
 		dragY = null;
-		if (!moved) {
-			// A tap anywhere on the header. (The button's own click, from keyboard
-			// or a screen reader, is handled in onHandleClick.)
-			expanded = !expanded;
-		} else if (expanded ? dy > (fast ? 12 : 60) : dy < -(fast ? 12 : 60)) {
-			expanded = !expanded;
-		}
+		if (moved && (expanded ? dy > (fast ? 12 : 60) : dy < -(fast ? 12 : 60))) expanded = !expanded;
+		return moved;
+	}
+	function dragStart(e: PointerEvent) {
+		if (!e.isPrimary) return;
+		beginDrag(e.clientY, e.timeStamp);
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}
+	const dragMove = (e: PointerEvent) => moveDrag(e.clientY);
+	function dragEnd(e: PointerEvent) {
+		// A tap anywhere on the header toggles. (The button's own click, from
+		// keyboard or a screen reader, is handled in onHandleClick.)
+		if (drag && !endDrag(e.clientY, e.timeStamp)) expanded = !expanded;
 	}
 	const dragCancel = () => {
 		drag = null;
@@ -262,6 +289,54 @@
 		expanded = false;
 		if (drawer?.contains(document.activeElement)) handle?.focus();
 	}
+	// Pulling the expanded list down from its top drags the drawer closed; any
+	// other touch scrolls the list. Touch events, as only they can stop the
+	// scroll once the pull has begun.
+	$effect(() => {
+		const el = listEl;
+		if (!el) return;
+		let start: { y: number; t: number } | null = null;
+		let pulling = false;
+		const touchstart = (e: TouchEvent) => {
+			pulling = false;
+			start =
+				expanded && e.touches.length === 1 && el.scrollTop <= 0
+					? { y: e.touches[0]!.clientY, t: e.timeStamp }
+					: null;
+		};
+		const touchmove = (e: TouchEvent) => {
+			if (!start) return;
+			const y = e.touches[0]!.clientY;
+			if (!pulling) {
+				const dy = y - start.y;
+				if (dy < -6 || el.scrollTop > 0) start = null; // scrolling the list
+				if (dy < 6 || !start) return;
+				pulling = true;
+				beginDrag(start.y, start.t);
+			}
+			e.preventDefault();
+			moveDrag(y);
+		};
+		const touchend = (e: TouchEvent) => {
+			if (pulling) {
+				if (e.type === 'touchcancel') dragCancel();
+				else endDrag(e.changedTouches[0]!.clientY, e.timeStamp);
+			}
+			start = null;
+			pulling = false;
+		};
+		el.addEventListener('touchstart', touchstart, { passive: true });
+		el.addEventListener('touchmove', touchmove, { passive: false });
+		el.addEventListener('touchend', touchend);
+		el.addEventListener('touchcancel', touchend);
+		return () => {
+			el.removeEventListener('touchstart', touchstart);
+			el.removeEventListener('touchmove', touchmove);
+			el.removeEventListener('touchend', touchend);
+			el.removeEventListener('touchcancel', touchend);
+		};
+	});
+
 	// A new day starts at the top of the list.
 	$effect(() => {
 		void selected;
@@ -707,6 +782,8 @@
 			flex: 1;
 			min-height: 0;
 			grid-template-rows: minmax(0, 1fr);
+			/* nothing here scrolls: every swipe is the page's own (month or drawer) */
+			touch-action: none;
 		}
 		.drawer {
 			--col-h: 116px;

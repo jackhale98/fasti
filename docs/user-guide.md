@@ -80,8 +80,12 @@ offers **Undo**. Tap any reminder to open it in the Inspector.
 
 A six-week grid. Use **Previous month**, **Next month** and **Today** to move,
 or the arrow keys once a day is focused. Wide screens show reminder labels in
-each day; phones show dots. Pick a day to see its reminders listed below the
-grid.
+each day and list the picked day's reminders beside the grid.
+
+On a phone the grid stays put and shows dots. Swipe it left or right to change
+month. The picked day sits in a drawer at the bottom: swipe up on the grid or
+the drawer, or tap the drawer, to expand it; swipe down on it (from the top of
+its list) or press Escape to collapse it.
 
 The legend explains the markings: today is highlighted; weekly days off (such
 as `OMIT Sat Sun`) are tinted; dated holidays (`OMIT 25 Dec`) are hatched; and
