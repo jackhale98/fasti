@@ -124,7 +124,8 @@
 						</div>
 					</div>
 				{:else}
-					<div role="gridcell" class="pending" aria-hidden="true"></div>
+					<!-- Still loading: an accessible cell, so a row of them still has gridcells. -->
+					<div role="gridcell" class="pending"><span class="vh">Loading</span></div>
 				{/if}
 			{/each}
 		</div>

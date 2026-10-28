@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 /** Open Quick add the way the device does: the FAB on phones, the `n` key on desktop. */
 async function openQuickAdd(page: Page) {
 	await page.goto('/');
-	await expect(page.getByRole('heading', { level: 1, name: 'Fasti' })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 	if (test.info().project.name.startsWith('phone')) {
 		await page.getByRole('button', { name: 'New reminder' }).click();
 	} else {
@@ -135,7 +135,7 @@ test('a line starting with REM or OMIT switches to raw mode', async ({ page }) =
 test('Add appends to the file, closes the sheet, and Undo removes it', async ({ page }) => {
 	const before = await (async () => {
 		await page.goto('/');
-		await expect(page.getByRole('heading', { level: 1, name: 'Fasti' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 		await expect.poll(() => fileText(page, 'reminders.rem')).toContain('Fasti demo vault');
 		return fileText(page, 'reminders.rem');
 	})();

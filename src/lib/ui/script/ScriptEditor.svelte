@@ -78,6 +78,8 @@
 		'.cm-activeLine': {
 			backgroundColor: 'color-mix(in srgb, var(--ledger-soft) 70%, transparent)'
 		},
+		// --ink-3 on the active line's tint is under 4.5:1 in dark mode (WCAG AA).
+		'.cm-activeLine .sx-com': { color: 'var(--ink-2)' },
 		'.cm-activeLineGutter': {
 			backgroundColor: 'color-mix(in srgb, var(--ledger-soft) 70%, transparent)',
 			color: 'var(--ink-2)'
