@@ -160,15 +160,16 @@ Copy from Mycelium `src/lib/git/*`, `src/lib/sync/*` and their tests, then adapt
 - While Fasti is open: local timers for today's queued `AT` reminders, honouring `+tdelta`, `*trepeat` and `NOQUEUE`. The times come from the engine.
 - While closed: reuse Mycelium's push design. Settings → Notifications subscribes the device. On each sync or app open, Fasti sends the next 8 days of `AT` reminders (at most 64), each encrypted on the device (RFC 8291) for that device. The worker's Durable Object stores only times and sealed messages and fires them with VAPID.
 - iOS only allows Web Push for installed home-screen apps. Explain this in Settings with install steps.
+- Reliability (Web Push is the only way to notify while the app is closed; neither platform lets a web app schedule a local notification):
+  - Send every push with `Urgency: high` and a `TTL` of a few minutes, so Android's Doze mode doesn't hold it and a late one is dropped rather than arriving hours late.
+  - The service worker always shows a visible notification for every push (iOS revokes subscriptions that don't).
+  - On every app open, check `pushManager.getSubscription()` and re-subscribe and re-upload if it is gone or changed.
+  - Settings shows "Notifications scheduled through <date>", has "Send a test notification", and says plainly: the schedule covers 8 days from the last time Fasti was opened on this device; edits made elsewhere, or a time zone change, take effect on the next open; battery savers, Focus and Low Power Mode can delay notifications.
 
 ### 3.6a Calendar export (ICS)
 
 - **v1: download.** Settings → Export builds an iCalendar file (RFC 5545) in the browser and saves it. The events come from the engine's calendar output (`-ppp` over the chosen range, default 12 months), never from the lens. Each occurrence is its own `VEVENT`, with no `RRULE`: Remind's OMIT, SKIP, BEFORE, AFTER and expressions don't map onto RRULE faithfully. A timed reminder (`AT`, `DURATION`) becomes a timed event in the device's time zone; others are all-day. `UID`s are stable (file, line text hash and date), so re-importing into a calendar that honours UIDs updates instead of duplicating. Options: date range, which files, include TODOs. `RUN` reminders are listed as plain events, never run.
-- **Follow-up (after v1): subscription feed.** Calendar apps subscribe from their own servers, so a feed needs a permanent per-person URL; a static site can't serve one. Two opt-in designs, both with the trade-off explained in Settings:
-  1. *Worker feed* (preferred): on each sync or app open, Fasti uploads the next few months as ICS to Fasti's worker, which serves it at an unguessable, revocable URL (`webcal://…/ics/<token>.ics`). Fresh only as of the last app open. Unlike push messages, the worker holds readable reminder text, because calendar servers need it.
-  2. *Own storage*: Fasti writes `fasti.ics` into the person's git repo, Dropbox or Nextcloud and they subscribe to its public link. No Fasti server holds data, but it needs a public link (a private GitHub repo's raw URL won't work).
-  - Not planned: the worker fetching `.rem` files and running Remind on a schedule, since OAuth tokens would have to live on the server (section 10).
-  - Google Calendar refreshes subscriptions slowly (often 12–24 hours); say so in Settings.
+- No subscription feed (`webcal://`): calendar apps fetch subscriptions from their own servers, which needs a permanent per-person URL; the owner ruled out both ways of providing one (a feed on the worker, a public file in the person's storage). Download only.
 
 ### 3.7 PWA and hosting
 
@@ -409,7 +410,6 @@ Keep this section current. One line per completed item, newest last.
 - Remind may need small build patches for Emscripten. These stay in this repo.
 - `TZ` support depends on Emscripten's time zone handling (spike item).
 - iOS push requires the app to be installed to the home screen.
-- ICS subscription feed (section 3.6a) is a follow-up after v1; choose between the worker feed and own-storage designs then.
 - Very large vaults: if engine runs exceed budget, cache results per file hash and range.
 
 ---
