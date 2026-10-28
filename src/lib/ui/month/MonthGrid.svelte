@@ -16,6 +16,9 @@
 		selected,
 		isHoliday,
 		neighbour,
+		focusDate = null,
+		onmove,
+		onfocused,
 		onselect
 	}: {
 		slots: Slot[];
@@ -26,6 +29,11 @@
 		isHoliday: (entry: ReminderEntry) => boolean;
 		/** The previous (-1) or next (+1) month's grid, for keys that leave this one. */
 		neighbour?: (dir: -1 | 1) => Slot[] | undefined;
+		/** A day to move keyboard focus to once its cell exists (set after an arrow key). */
+		focusDate?: string | null;
+		onfocused?: () => void;
+		/** An arrow key chose this day: select it and ask for focus. */
+		onmove?: (date: string) => void;
 		onselect: (date: string) => void;
 	} = $props();
 
@@ -52,27 +60,25 @@
 	}
 
 	/**
-	 * The day to focus once its cell exists. Moving into the next or previous
-	 * month re-renders the grid, and that month may still be loading, so the
-	 * focus waits for the cell rather than being lost (keys then stop working).
+	 * Moving into the next or previous month swaps in a new grid, which may still
+	 * be loading, so the page keeps the wanted day (`focusDate`) and whichever
+	 * grid has its cell focuses it; keys then keep working.
 	 */
-	let pendingFocus = $state<string | null>(null);
-
 	$effect(() => {
-		const date = pendingFocus;
+		const date = focusDate;
 		if (!date || !slots.some((s) => s?.date === date)) return;
 		void tick().then(() => {
 			const cell = grid?.querySelector<HTMLElement>(`[data-date="${date}"]`);
 			if (cell) {
-				cell.focus();
-				pendingFocus = null;
+				cell.focus({ preventScroll: true });
+				onfocused?.();
 			}
 		});
 	});
 
 	function move(date: string) {
-		onselect(date);
-		pendingFocus = date;
+		if (onmove) onmove(date);
+		else onselect(date);
 	}
 
 	function onkeydown(event: KeyboardEvent) {
@@ -171,6 +177,11 @@
 		border-radius: 12px;
 		overflow: hidden;
 		box-shadow: inset 0 0 0 1px var(--rule);
+		/* Phones: fill the stage, the six week rows sharing what the weekday row leaves. */
+		height: 100%;
+		display: grid;
+		grid-template-rows: auto repeat(6, minmax(0, 1fr));
+		box-sizing: border-box;
 	}
 	.row {
 		display: grid;
@@ -193,12 +204,15 @@
 	.gc,
 	.pending {
 		position: relative;
-		min-height: 58px;
+		min-height: 0;
+	}
+	.pending {
+		background: color-mix(in srgb, var(--sunk) 40%, transparent);
 	}
 	.extras {
 		position: absolute;
 		inset: 0;
-		padding: 38px 2px 0;
+		padding: 34px 2px 0;
 		pointer-events: none;
 	}
 	.cell {
@@ -279,6 +293,10 @@
 		display: none;
 	}
 	@media (min-width: 720px) {
+		.grid {
+			height: auto;
+			display: block;
+		}
 		.cell {
 			padding: 6px;
 		}

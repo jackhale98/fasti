@@ -5,6 +5,20 @@ import { expect, test, type Page } from '@playwright/test';
 // The sample vault is seeded on first run. Tests run on the real date, so they
 // assert structure, not particular days.
 
+const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1000) < 720;
+const handleOf = (page: Page) => page.getByRole('button', { name: 'Day details' });
+
+/** On phones the day's list lives in the drawer; open it. */
+async function expandIfPhone(page: Page) {
+	if (!isPhone(page)) return;
+	const handle = handleOf(page);
+	if ((await handle.getAttribute('aria-expanded')) !== 'true') await handle.click();
+	await expect(handle).toHaveAttribute('aria-expanded', 'true');
+}
+
+/** Wait for a month slide to end: only the new month's grid is left. */
+const settled = (page: Page) => expect(page.getByRole('grid', { name: 'Month' })).toHaveCount(1);
+
 async function open(page: Page) {
 	await page.goto('/month');
 	await expect(page.getByTestId('day-cell')).toHaveCount(42, { timeout: 30_000 });
@@ -12,7 +26,7 @@ async function open(page: Page) {
 
 test('the grid renders 42 day cells under a month heading', async ({ page }) => {
 	await open(page);
-	await expect(page.getByRole('heading', { level: 1, name: 'Month' })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1, name: 'Month' })).toBeAttached();
 	await expect(page.getByTestId('month-heading')).toContainText(/\w+\s+\d{4}/);
 	await expect(page.getByRole('columnheader')).toHaveCount(7);
 	await expect(page.locator('[data-testid="day-cell"][aria-current="date"]')).toHaveCount(1);
@@ -42,11 +56,13 @@ test('Previous, Next and Today change the heading', async ({ page }) => {
 	await expect(heading).not.toHaveText(later);
 	await page.getByRole('button', { name: 'Today', exact: true }).click();
 	await expect(heading).toHaveText(start);
+	await expect(page.getByTestId('day-cell')).toHaveCount(42);
 	await expect(page.locator('[data-testid="day-cell"][aria-current="date"]')).toHaveCount(1);
 });
 
 test('selecting a day shows its heading and list', async ({ page }) => {
 	await open(page);
+	await expandIfPhone(page);
 	// Find a day with entries.
 	const withEntries = page.locator(
 		'[data-testid="day-cell"]:not(.out):not([aria-label*=", 0 reminders"])'
@@ -54,8 +70,10 @@ test('selecting a day shows its heading and list', async ({ page }) => {
 	expect(await withEntries.count()).toBeGreaterThan(0);
 	const cell = withEntries.first();
 	const name = (await cell.getAttribute('aria-label')) ?? '';
+	if (isPhone(page)) await page.keyboard.press('Escape'); // the grid is inert while the drawer is open
 	await cell.click();
 	await expect(cell.locator('xpath=..')).toHaveAttribute('aria-selected', 'true');
+	await expandIfPhone(page);
 	const heading = page.getByTestId('day-heading');
 	const [, weekday, day, monthName] = /^(\w+) (\d+) (\w+),/.exec(name) ?? [];
 	await expect(heading).toContainText(`${weekday} ${day} ${monthName}`.replace(/\s+/g, ' '));
@@ -76,16 +94,35 @@ test('arrow keys move the selected day; Enter selects', async ({ page }) => {
 	await expect(next).toHaveClass(/sel/);
 	const after = await next.getAttribute('data-date');
 	await page.keyboard.press('ArrowDown');
+	await settled(page);
 	const down = page.locator('[data-testid="day-cell"][tabindex="0"]');
 	await expect(down).toBeFocused();
 	expect(await down.getAttribute('data-date')).not.toBe(after);
 	await page.keyboard.press('ArrowUp');
+	await settled(page);
 	await expect(page.locator('[data-testid="day-cell"][tabindex="0"]')).toHaveAttribute(
 		'data-date',
 		after!
 	);
 	await page.keyboard.press('Enter');
 	await expect(page.locator('[data-testid="day-cell"][tabindex="0"]')).toHaveClass(/sel/);
+});
+
+test('arrow keys past the last day cross into the next month', async ({ page }) => {
+	await open(page);
+	const heading = page.getByTestId('month-heading');
+	const start = await heading.innerText();
+	const lastIn = page.locator('[data-testid="day-cell"]:not(.out)').last();
+	await lastIn.click();
+	await lastIn.focus();
+	// Day 28-31 may sit mid-row; Down from the last row crosses, so walk down.
+	for (let i = 0; i < 6; i++) {
+		await page.keyboard.press('ArrowDown');
+		if ((await heading.innerText()) !== start) break;
+	}
+	await expect(heading).not.toHaveText(start);
+	await settled(page);
+	await expect(page.locator('[data-testid="day-cell"].sel')).toBeFocused();
 });
 
 test('the grid fits 360 px without sideways scrolling', async ({ page }) => {
@@ -108,4 +145,202 @@ test('axe finds no serious issues, with and without a day selected', async ({ pa
 	expect(await check()).toEqual([]);
 	await page.getByTestId('day-cell').nth(10).click();
 	expect(await check()).toEqual([]);
+	if (isPhone(page)) {
+		await handleOf(page).click();
+		expect(await check()).toEqual([]);
+	}
+});
+
+test('on wide screens a dimmed day also slides to its month', async ({ page }, info) => {
+	test.skip(!info.project.name.startsWith('desktop'), 'wide layout only');
+	await open(page);
+	const heading = page.getByTestId('month-heading');
+	const start = await heading.innerText();
+	const trailing = page.locator('[data-testid="day-cell"].out').last();
+	const date = (await trailing.getAttribute('data-date'))!;
+	await trailing.click();
+	await expect(heading).not.toHaveText(start);
+	await settled(page);
+	await expect(page.locator('[data-testid="day-cell"].sel')).toHaveAttribute('data-date', date);
+	await expect(page.getByRole('grid', { name: 'Month' })).toHaveCount(1);
+	await expect(page.getByTestId('day-cell')).toHaveCount(42);
+});
+
+test.describe('phones', () => {
+	// eslint-disable-next-line no-empty-pattern
+	test.beforeEach(({}, info) => {
+		test.skip(!info.project.name.startsWith('phone'), 'phone layout only');
+	});
+
+	for (const size of [
+		{ width: 360, height: 640 },
+		{ width: 390, height: 844 }
+	]) {
+		test(`the page is stationary at ${size.width}x${size.height}`, async ({ page }) => {
+			await page.setViewportSize(size);
+			await open(page);
+			const m = await page.evaluate(() => ({
+				doc: document.documentElement.scrollHeight,
+				h: window.innerHeight,
+				w: document.documentElement.scrollWidth - document.documentElement.clientWidth
+			}));
+			expect(m.doc).toBeLessThanOrEqual(m.h);
+			expect(m.w).toBeLessThanOrEqual(0);
+			// Grid, drawer head and tab bar sit in the viewport without overlapping.
+			const grid = (await page.getByRole('grid', { name: 'Month' }).boundingBox())!;
+			const drawer = (await handleOf(page).boundingBox())!;
+			const tabs = (await page.getByRole('navigation', { name: 'Views' }).boundingBox())!;
+			expect(grid.y + grid.height).toBeLessThanOrEqual(drawer.y + 1);
+			expect(drawer.y).toBeLessThan(tabs.y);
+			expect(grid.height).toBeGreaterThan(250);
+			// The FAB doesn't cover the collapsed preview.
+			const fab = (await page.getByRole('button', { name: 'New reminder' }).boundingBox())!;
+			const preview = (await page.getByTestId('day-preview').boundingBox())!;
+			expect(preview.x + preview.width).toBeLessThanOrEqual(fab.x + 1);
+		});
+	}
+
+	test('the drawer expands and collapses by tap, keyboard and Escape', async ({ page }) => {
+		await open(page);
+		const handle = handleOf(page);
+		const region = page.getByRole('region', { name: /\d/ });
+		await expect(handle).toHaveAttribute('aria-expanded', 'false');
+		await expect(handle).toHaveAttribute('aria-controls', 'day-list');
+		const before = (await handle.boundingBox())!;
+		await handle.click();
+		await expect(handle).toHaveAttribute('aria-expanded', 'true');
+		await expect(region).toBeVisible();
+		await expect.poll(async () => (await handle.boundingBox())!.y).toBeLessThan(before.y - 100);
+		await handle.click();
+		await expect(handle).toHaveAttribute('aria-expanded', 'false');
+		await handle.focus();
+		await page.keyboard.press('Enter');
+		await expect(handle).toHaveAttribute('aria-expanded', 'true');
+		await page.keyboard.press('Escape');
+		await expect(handle).toHaveAttribute('aria-expanded', 'false');
+		await expect(handle).toBeFocused();
+		await page.keyboard.press('Space');
+		await expect(handle).toHaveAttribute('aria-expanded', 'true');
+	});
+
+	test('dragging the handle up expands and down collapses', async ({ page }) => {
+		await open(page);
+		const handle = handleOf(page);
+		const box = (await handle.boundingBox())!;
+		const x = box.x + 40;
+		await page.mouse.move(x, box.y + 10);
+		await page.mouse.down();
+		await page.mouse.move(x, box.y - 60, { steps: 6 });
+		await page.mouse.move(x, box.y - 160, { steps: 6 });
+		await page.mouse.up();
+		await expect(handle).toHaveAttribute('aria-expanded', 'true');
+		await expect.poll(async () => (await handle.boundingBox())!.y).toBeLessThan(box.y - 100);
+		await page.waitForTimeout(300); // let the 200 ms transition finish
+		const up = (await handle.boundingBox())!;
+		await page.mouse.move(x, up.y + 10);
+		await page.mouse.down();
+		await page.mouse.move(x, up.y + 80, { steps: 6 });
+		await page.mouse.move(x, up.y + 200, { steps: 6 });
+		await page.mouse.up();
+		await expect(handle).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	test('the expanded list scrolls inside the drawer and clears the FAB', async ({ page }) => {
+		await open(page);
+		await expandIfPhone(page);
+		const list = page.locator('#day-list');
+		// Pad the list with copies of its rows so it overflows whatever the day holds.
+		await list.evaluate((el) => {
+			const ul = el.querySelector('ul')!;
+			const row = ul.firstElementChild!;
+			for (let i = 0; i < 20; i++) ul.append(row.cloneNode(true));
+		});
+		const m = await list.evaluate((el) => ({
+			overflow: getComputedStyle(el).overflowY,
+			scroll: el.scrollHeight,
+			client: el.clientHeight
+		}));
+		expect(m.overflow).toBe('auto');
+		expect(m.scroll).toBeGreaterThan(m.client);
+		await list.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+		expect(await list.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+		expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(
+			true
+		);
+		// Scrolled to the end, the last row ends above the FAB.
+		const last = (await list.locator('li').last().boundingBox())!;
+		const fab = (await page.getByRole('button', { name: 'New reminder' }).boundingBox())!;
+		expect(last.y + last.height).toBeLessThanOrEqual(fab.y + 1);
+	});
+
+	test('selecting another day keeps the drawer state and updates it', async ({ page }) => {
+		await open(page);
+		const heading = page.getByTestId('day-heading');
+		const before = await heading.innerText();
+		await page.locator('[data-testid="day-cell"][tabindex="0"]').focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(heading).not.toHaveText(before);
+		await expect(handleOf(page)).toHaveAttribute('aria-expanded', 'false');
+		await handleOf(page).click();
+		// Expanded: the month header stays usable and the day follows it.
+		const open_ = await heading.innerText();
+		await page.getByRole('button', { name: 'Next month' }).click();
+		await expect(heading).not.toHaveText(open_);
+		await expect(handleOf(page)).toHaveAttribute('aria-expanded', 'true');
+	});
+
+	test('tapping a dimmed day of the next month slides there and selects that date', async ({
+		page
+	}) => {
+		await open(page);
+		const monthHeading = page.getByTestId('month-heading');
+		const start = await monthHeading.innerText();
+		const trailing = page.locator('[data-testid="day-cell"].out').last();
+		const date = (await trailing.getAttribute('data-date'))!;
+		const label = (await trailing.getAttribute('aria-label'))!;
+		const [, day, monthName] = /^\w+ (\d+) (\w+),/.exec(label)!;
+		await trailing.click();
+		await expect(monthHeading).not.toHaveText(start);
+		await expect(monthHeading).toContainText(monthName!);
+		const selected = page.locator('[data-testid="day-cell"].sel');
+		await expect(selected).toHaveCount(1);
+		await expect(selected).toHaveAttribute('data-date', date);
+		await expect(selected).not.toHaveClass(/out/);
+		await expect(page.getByTestId('day-heading')).toContainText(`${day} ${monthName}`);
+		// Once the slide ends only the new month's grid remains.
+		await expect(page.getByRole('grid', { name: 'Month' })).toHaveCount(1);
+		await expect(page.getByTestId('day-cell')).toHaveCount(42);
+	});
+
+	test('swiping the grid left and right changes month', async ({ page }) => {
+		await open(page);
+		const heading = page.getByTestId('month-heading');
+		const start = await heading.innerText();
+		const grid = (await page.getByRole('grid', { name: 'Month' }).boundingBox())!;
+		const y = grid.y + grid.height / 2;
+		const swipe = async (from: number, to: number) => {
+			await page.mouse.move(from, y);
+			await page.mouse.down();
+			await page.mouse.move((from + to) / 2, y + 4, { steps: 4 });
+			await page.mouse.move(to, y + 6, { steps: 4 });
+			await page.mouse.up();
+		};
+		await swipe(grid.x + grid.width - 30, grid.x + 30);
+		await expect(heading).not.toHaveText(start);
+		await expect(page.getByRole('grid', { name: 'Month' })).toHaveCount(1);
+		await swipe(grid.x + 30, grid.x + grid.width - 30);
+		await expect(heading).toHaveText(start);
+	});
+
+	test('with reduced motion months still change at once', async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		await open(page);
+		const heading = page.getByTestId('month-heading');
+		const start = await heading.innerText();
+		await page.getByRole('button', { name: 'Next month' }).click();
+		await expect(heading).not.toHaveText(start);
+		await expect(page.getByTestId('day-cell')).toHaveCount(42);
+		await handleOf(page).click();
+		await expect(handleOf(page)).toHaveAttribute('aria-expanded', 'true');
+	});
 });
