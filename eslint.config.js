@@ -19,7 +19,9 @@ export default ts.config(
 			'reference/',
 			'.cache/',
 			'.lighthouseci/',
-			'worker/.wrangler/'
+			'worker/.wrangler/',
+			// Subagent worktrees: whole copies of the repo.
+			'.claude/'
 		]
 	},
 	js.configs.recommended,
