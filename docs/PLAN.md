@@ -416,6 +416,7 @@ Keep this section current. One line per completed item, newest last.
   - [x] Integration fixes: snapshot posted to the worker raw (DataCloneError), the inspector mounted once, Month loading cells accessible, a dark-mode contrast fix in the editor, the inspector title read as of today, Heads-up order, Month selecting today and arrow keys across months.
   - First pushed to `main` for the owner to test (owner's go-ahead, 2026-10-28).
   - [x] Today view (`src/routes/+page.svelte`, `src/lib/ui/today/`, `tests/e2e/today.spec.ts`): banner, Overdue, Today, Heads-up, Next two weeks from the calendar.
+  - [x] Month on phones (owner feedback): stationary page, day drawer docked above the tab bar (drag or tap handle, Escape), horizontal slide between months (buttons, swipe, arrow keys, dimmed days select their exact date), one extra month prefetched in the direction of travel; wide screens keep the old layout with the same slide.
 - [ ] Phase 4: sync and worker
 - [ ] Phase 5: notifications
 - [ ] Phase 6: PWA, performance, docs, deploy
