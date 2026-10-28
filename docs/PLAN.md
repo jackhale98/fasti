@@ -108,6 +108,14 @@ WebDAV relay · encrypted push store (Durable Object alarms)
 
 The main entry is configurable: a file (default `reminders.rem` or `.reminders`) or a directory (Remind reads every `*.rem` in it, sorted).
 
+**Speed budget (re-scoped after the spike).** Remind's cost is about lines × days, so:
+- The agenda (one day, about 7 ms natively) comes first and is the first paint of Today.
+- The visible month is computed next, on its own: under 500 ms at ×4 throttling for the 2,000-line vault (measured 492 ms), far less for typical vaults.
+- Other months are filled in afterwards by a small pool of engine workers running in parallel.
+- Results are cached per (vault content hash, range, options), in memory and IndexedDB, so a repeat view or reload is instant and only a changed vault reruns.
+- Every run is in a worker, so the UI never blocks; a view shows its previous result, or a skeleton, until the new one arrives, never a guessed date.
+- CI keeps the timing test on the large fixture as a regression guard.
+
 **Spike first (Phase 0).** The engine is the riskiest part, so it gets a go/no-go before anything else is built:
 
 Progress on these is tracked in `docs/engine.md`.
@@ -117,7 +125,7 @@ Progress on these is tracked in `docs/engine.md`.
 - [ ] `DO`, `INCLUDE` and directory includes resolve inside MEMFS.
 - [ ] File permission and uid checks don't block reading.
 - [ ] `TZ` keyword: find out whether Emscripten's time functions plus a bundled zoneinfo subset make it work. If not, show a diagnostic on lines that use `TZ` and record it as a known limitation.
-- [ ] A 2,000-line vault produces a 3-month calendar in under 150 ms on a mid-range phone (Playwright with CPU throttling ×4 as a proxy).
+- [x] ~~A 2,000-line vault produces a 3-month calendar in under 150 ms~~ Missed and re-scoped (owner's decision, 2026-10-28): native Remind itself takes 186 ms for that calendar, WASM about 260 ms, and ×4 throttling 1.2–1.5 s. New budget, below.
 - [ ] Gzipped `remind.wasm` plus glue under 400 KB.
 
 If the spike fails, stop and report to the human before continuing. The fallback would be porting the prototype's JS engine, which changes the licence decision.
@@ -389,14 +397,14 @@ The agent can't do these; it should stop and ask when it reaches one.
 
 Keep this section current. One line per completed item, newest last.
 
-- [ ] Phase 0: spike and scaffold
+- [x] Phase 0: spike and scaffold
   - [x] Plan moved to `docs/PLAN.md`; `CLAUDE.md` and the nine agent files in `.claude/agents/` (section 9.2's bodies live there, not duplicated here); `reference/` holds the prototype and vectors (the vectors pass 57/57 against the prototype's own engine, which confirms the copy).
   - [x] Scaffold from Tessera: SvelteKit 3 + adapter-static (SPA, `404.html` fallback, prerendered `index.html`), Svelte 5, TypeScript strict, ESLint, Prettier, Vitest, Playwright (phone 390×844 and desktop 1366×860, light and dark, axe), design tokens and self-hosted fonts.
   - [x] CSP meta tag written by SvelteKit with a hash for its start-up script: `script-src 'self' 'wasm-unsafe-eval'`, no inline scripts; fonts are never inlined as `data:` URIs.
   - [x] Licence files: `LICENSE` (GPL-2.0), `THIRD_PARTY_NOTICES.md`, README with AI-assistance and not-affiliated notes. `npm run licenses` checks the packages that actually have code in the client bundle (recorded by the build); `npm run spdx` checks SPDX headers. Both run in CI.
   - [x] Workflows: `ci.yml`, `engine.yml` (reusable, cached on `engine/**`), `deploy.yml` (only commits that passed CI).
   - [x] `engine/build.sh` in `emscripten/emsdk:6.0.13` pinned by digest (verified to run here); checks the tarball's SHA-256 against `SOURCE.md`. `engine/vendor/README.md` tells the human what to commit.
-  - [ ] **Blocked on section 12, step 1** (the Remind tarball): WASM build, the spike checklist in 3.2, `docs/engine.md` with confirmed flags, `docs/remind-reference.md`.
+  - [x] Remind 06.03.06 vendored (owner-supplied; signature still to add). Spike: reproducible build with no C patches, 57/57 vectors, includes and permissions in MEMFS (files 0600), TZ via an `Intl`-based time shim, 184 KB gzipped. Speed missed the 150 ms budget; re-scoped (section 3.2). Details in `docs/engine.md`; man-page digest in `docs/remind-reference.md`.
 - [ ] Phase 1: engine client and lens
   - [x] Lens (`src/lib/lens/`, 198 tests): tokenizer with Remind's own continuation rules (`files.c`), CodeMirror language and completions, explanations, quick add, byte-exact patcher with property tests. Reviewer signed off on `patch.ts` after one round of fixes.
   - Follow-ups for the quick-add UI (Phase 3), all low: flag a refused date instead of silently using today (`dentist 31 Feb`); reject years outside 1990–2075; try later date matches when the first is refused; markDone on a line with two COMPLETE-THROUGH clauses updates only the second (Remind would reject such a line anyway).
@@ -413,7 +421,7 @@ Keep this section current. One line per completed item, newest last.
 - Remind may need small build patches for Emscripten. These stay in this repo.
 - `TZ` support depends on Emscripten's time zone handling (spike item).
 - iOS push requires the app to be installed to the home screen.
-- Very large vaults: if engine runs exceed budget, cache results per file hash and range.
+- Very large vaults: handled by the re-scoped speed budget in 3.2 (month-first, worker pool, cache per vault hash and range).
 
 ---
 
