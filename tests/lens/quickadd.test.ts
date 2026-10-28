@@ -139,3 +139,30 @@ describe('model', () => {
 		expect(toRem(parse('tomorrow', today), today)).toBe('REM 2026-10-29 MSG Reminder');
 	});
 });
+
+describe('refused dates', () => {
+	it('flags an impossible date instead of silently using today', () => {
+		const m = parse('dentist 31 Feb', today);
+		expect(m.refused).toEqual(['31 Feb']);
+		expect(m.msg).toContain('31 Feb');
+	});
+	it('flags an impossible ISO date and a year outside 1990 to 2075', () => {
+		expect(parse('dentist 2026-13-45', today).refused).toEqual(['2026-13-45']);
+		expect(parse('dentist 2099-01-05', today).refused).toEqual(['2099-01-05']);
+		expect(parse('dentist 1985-01-05', today).refused).toEqual(['1985-01-05']);
+		expect(parse('dentist 14 Dec 2099', today).refused).toEqual(['14 Dec 2099']);
+	});
+	it('tries later date matches when the first is refused', () => {
+		const m = parse('dentist 31 Feb or 14 Dec', today);
+		expect(m.refused).toEqual(['31 Feb']);
+		expect(toRem(m, today)).toMatch(/^REM 2026-12-14 MSG /);
+	});
+	it('leaves refused unset for good input', () => {
+		expect(parse('dentist 14 Dec', today).refused).toBeUndefined();
+		expect(parse('dentist 2075-12-31', today).refused).toBeUndefined();
+	});
+	it('refuses an impossible UNTIL and a start date', () => {
+		expect(parse('yoga daily until 31 Feb', today).refused).toEqual(['31 Feb']);
+		expect(parse('pay every 14 days from 2026-02-30', today).refused).toEqual(['2026-02-30']);
+	});
+});

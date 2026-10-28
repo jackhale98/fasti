@@ -32,12 +32,16 @@ class App {
 	/** A message when loading failed (no IndexedDB, a broken database). */
 	error = $state<string | null>(null);
 	settings = $state<Settings>({ ...DEFAULT_SETTINGS });
-	/** The snapshot Remind runs on; replaced (not mutated) after every change. */
-	snapshot = $state<VaultSnapshot | null>(null);
+	/**
+	 * The snapshot Remind runs on; replaced (never mutated) after every change.
+	 * Raw, not a deep proxy, so it can be posted to the engine worker as is
+	 * (a $state proxy can't be structured-cloned).
+	 */
+	snapshot = $state.raw<VaultSnapshot | null>(null);
 	/** Which files Remind reads, and include problems. */
-	discovery = $state<Discovery | null>(null);
+	discovery = $state.raw<Discovery | null>(null);
 	/** Remind's today and now in the device's zone. */
-	today = $state<EngineNow | null>(null);
+	today = $state.raw<EngineNow | null>(null);
 	/** The device's time zone, passed to every engine run. */
 	tz = deviceZone();
 	/** Bumped after each change, for views that re-query. */
