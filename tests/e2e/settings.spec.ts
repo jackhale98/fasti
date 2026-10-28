@@ -226,6 +226,10 @@ test('no serious axe issues, with a dialog open too', async ({ page }) => {
 	expect(await scan()).toEqual([]);
 	await page.getByRole('button', { name: 'Reset local data' }).click();
 	await expect(page.getByRole('dialog', { name: 'Reset local data?' })).toBeVisible();
+	// The dialog fades in; scanning mid-animation measures half-transparent text.
+	await page.waitForFunction(() =>
+		document.getAnimations().every((a) => a.playState !== 'running')
+	);
 	expect(await scan()).toEqual([]);
 });
 

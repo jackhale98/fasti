@@ -418,8 +418,19 @@ Keep this section current. One line per completed item, newest last.
   - [x] Today view (`src/routes/+page.svelte`, `src/lib/ui/today/`, `tests/e2e/today.spec.ts`): banner, Overdue, Today, Heads-up, Next two weeks from the calendar.
   - [x] Month on phones (owner feedback): stationary page, day drawer docked above the tab bar (drag or tap handle, Escape), horizontal slide between months (buttons, swipe, arrow keys, dimmed days select their exact date), one extra month prefetched in the direction of travel; wide screens keep the old layout with the same slide.
 - [ ] Phase 4: sync and worker
+  - [x] Worker ported from Mycelium (`worker/`, 32 tests): git proxy, OAuth exchange, WebDAV relay, encrypted push queue. Reviewed twice; host checks normalised, relay ports limited, redirects same-host only, no-store forced. Deploying it is the owner's step (`docs/setup-worker.md`, section 12 step 4).
+  - [ ] Sync itself (GitHub, git hosts, Dropbox, OneDrive, WebDAV, three-way merge, Sync view): not started; the owner asked for Phases 5 and 6 first.
 - [ ] Phase 5: notifications
+  - [x] Local timers while open and encrypted Web Push while closed (RFC 8291; times from Remind's agenda and its queue rules), Settings section with status, test, iOS guidance and limits. Reviewed; fixes for payload size, the through-date status, retries and clock skew merged.
+  - [x] ICS download (section 3.6a); the subscription feed was dropped (owner's decision).
+  - [ ] Manual push test on Android Chrome and an installed iOS PWA (needs the worker deployed). SCHED and ONCE are not handled yet.
 - [ ] Phase 6: PWA, performance, docs, deploy
+  - [x] Service worker precaching the shell and the engine (works fully offline after one visit, tested), manifest and the owner's icons, update notice.
+  - [x] Settings view (files, import/export, reset, display options).
+  - [x] Lighthouse CI on mobile and desktop with the plan's budgets (first results come from GitHub; Lighthouse no longer has a PWA category).
+  - [x] README, user guide, setup placeholders for providers.
+  - [x] Owner feedback: quick add keeps its layout while typing; Month on phones is a stationary grid with a day drawer and slides between months.
+  - [ ] Confirm Lighthouse scores in CI and installs on iOS and Android.
 - [ ] Phase 7: final review
 
 ### Risks and open questions
