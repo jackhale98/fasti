@@ -562,6 +562,8 @@ class Notifications {
 				createdAt: Date.now()
 			};
 			await this.#save(next);
+			// The old address's list on the worker would otherwise wait out its expiry.
+			await deleteSchedule(WORKER_URL!, record.subscription.endpoint).catch(() => {});
 			return next;
 		} catch {
 			return record;

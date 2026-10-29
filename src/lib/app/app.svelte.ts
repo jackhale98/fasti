@@ -105,8 +105,9 @@ class App {
 		}
 	}
 
+	/** Null once a newer Fasti took over the database: callers then save nothing (and keep unsaved typing). */
 	get vault(): Vault | null {
-		return this.#vault;
+		return this.#stale() ? null : this.#vault;
 	}
 
 	/** The text of a file, from the current snapshot. */

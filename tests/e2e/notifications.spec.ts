@@ -150,6 +150,30 @@ test.describe('with permission granted', () => {
 		await page.goto('/settings');
 		await section(page).getByRole('button', { name: 'Turn on notifications' }).click();
 		await expect(section(page).getByText('Notifications are on for this device.')).toBeVisible();
+		// Let the app save its own plan first, so it can't overwrite the one below.
+		await expect
+			.poll(() =>
+				page.evaluate(
+					() =>
+						new Promise<boolean>((resolve) => {
+							const open = indexedDB.open('fasti');
+							open.onerror = () => resolve(false);
+							open.onsuccess = () => {
+								const get = open.result.transaction('notify').objectStore('notify').get('plan');
+								get.onsuccess = () => {
+									open.result.close();
+									resolve(get.result !== undefined);
+								};
+								get.onerror = () => {
+									open.result.close();
+									resolve(false);
+								};
+							};
+						})
+				)
+			)
+			.toBe(true);
+		await page.waitForLoadState('networkidle');
 		// The plan kept on the device, as a closed Fasti left it: one notification
 		// passed unseen, one was shown (by a push, say), one is still to come.
 		await page.evaluate(async () => {
