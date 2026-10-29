@@ -3,7 +3,7 @@
  * The invocations and output shapes recorded in docs/engine.md, pinned so a
  * change to the engine build that alters them fails here first.
  */
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { engineBuilt, runRemind, type MonthDescriptor } from './remind';
 
 const vault = {
@@ -18,6 +18,15 @@ const vault = {
 };
 const MAIN = '/vault/reminders.rem';
 const env = { TZ: 'UTC' };
+
+// Remind marks the banner "(today)" against the real clock: pin it to the day
+// the expectations were recorded, so they don't change with the calendar.
+beforeAll(() => {
+	vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-28T12:00:00Z') });
+});
+afterAll(() => {
+	vi.useRealTimers();
+});
 
 describe.skipIf(!engineBuilt)('agenda: --json -r -q -h <main> YYYY-MM-DD@HH:MM', () => {
 	it('is one JSON array of event objects (banner suppressed by -h only when empty)', async () => {

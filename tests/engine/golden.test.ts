@@ -6,7 +6,7 @@
  * comes from Remind.
  */
 import { format, resolveConfig } from 'prettier';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { runOp } from '../../src/lib/engine/ops';
 import type { EngineOp, OpResults } from '../../src/lib/engine/protocol';
 import type { Engine } from '../../src/lib/engine/run';
@@ -17,6 +17,15 @@ import { engineBuilt } from './remind';
 let engine: Engine;
 const edge = { main: 'reminders.rem', files: fixtureFiles('edge') };
 const large = { main: 'reminders.rem', files: fixtureFiles('large') };
+
+// Remind marks the banner "(today)" against the real clock: pin it to the day
+// the expectations were recorded, so they don't change with the calendar.
+beforeAll(() => {
+	vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-28T12:00:00Z') });
+});
+afterAll(() => {
+	vi.useRealTimers();
+});
 
 async function run<K extends EngineOp['op']>(
 	vault: typeof edge,
