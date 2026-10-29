@@ -15,7 +15,6 @@ import {
 	type Schedule
 } from '../../src/lib/notify/schedule';
 import type { AgendaResult, ReminderEntry } from '../../src/lib/engine/types';
-import { uploadHorizon } from '../../src/lib/notify/push';
 import { nodeClient, snapshot } from '../engine/harness';
 import { engineBuilt } from '../engine/remind';
 
@@ -30,9 +29,6 @@ describe('queueTimes (remind(1), TIMED REMINDERS)', () => {
 	});
 	it('issues a plain AT once', () => {
 		expect(queueTimes(hm(9, 30))).toEqual([hm(9, 30)]);
-	});
-	it('ignores tdelta and trep with SCHED', () => {
-		expect(queueTimes(hm(13), 60, 10, true)).toEqual([hm(13)]);
 	});
 	it('reaches back before midnight with negative minutes', () => {
 		expect(queueTimes(hm(0, 30), 60)).toEqual([-30, 30]);
@@ -135,7 +131,8 @@ const VAULT = [
 	'REM 2026-10-29 AT 00:30 +60 MSG Early start',
 	'REM Mon AT 08:00 MSG Weekly',
 	'REM 2026-10-28 AT 09:00 TZ America/New_York MSG New York call',
-	'REM 2026-11-20 AT 10:00 MSG Outside the window',
+	'REM 2026-11-20 AT 10:00 MSG Inside the window',
+	'REM 2026-11-28 AT 10:00 MSG Outside the window',
 	''
 ].join('\n');
 
@@ -147,23 +144,23 @@ describe.skipIf(!engineBuilt)('buildSchedule (real engine)', () => {
 	const now = { date: '2026-10-28', time: hm(10) };
 	let full: Schedule;
 
-	it('lists Remind’s today and the next 8 days', async () => {
+	it('lists Remind’s today and the next 30 days', async () => {
 		full = await buildSchedule(client, vault, { tz, now });
-		expect(full.days).toEqual([
+		expect(full.days.length).toBe(31);
+		expect(full.days.slice(0, 5)).toEqual([
 			'2026-10-28',
 			'2026-10-29',
 			'2026-10-30',
 			'2026-10-31',
-			'2026-11-01',
-			'2026-11-02',
-			'2026-11-03',
-			'2026-11-04',
-			'2026-11-05'
+			'2026-11-01'
 		]);
-		expect(full.through).toBe('2026-11-05');
+		expect(full.days.at(-1)).toBe('2026-11-27');
+		expect(full.through).toBe('2026-11-27');
 		expect(full.truncated).toBe(false);
 		// Midnight in Berlin (CET) is 23:00 UTC.
 		expect(full.nextDay).toBe(Date.UTC(2026, 9, 28, 23, 0));
+		// Renew at 12:00 on 26 Nov in Berlin (CET): 11:00 UTC.
+		expect(full.renewalAt).toBe(Date.UTC(2026, 10, 26, 11, 0));
 	});
 
 	it('honours +tdelta, *trepeat and NOQUEUE, and skips CAL, RUN and the past', () => {
@@ -179,7 +176,11 @@ describe.skipIf(!engineBuilt)('buildSchedule (real engine)', () => {
 			`2026-10-28 ${hm(16)} Tea now`,
 			`2026-10-28 ${hm(23, 30)} Early start`,
 			`2026-10-29 ${hm(0, 30)} Early start`,
-			`2026-11-02 ${hm(8)} Weekly`
+			`2026-11-02 ${hm(8)} Weekly`,
+			`2026-11-09 ${hm(8)} Weekly`,
+			`2026-11-16 ${hm(8)} Weekly`,
+			`2026-11-20 ${hm(10)} Inside the window`,
+			`2026-11-23 ${hm(8)} Weekly`
 		]);
 	});
 
@@ -203,6 +204,8 @@ describe.skipIf(!engineBuilt)('buildSchedule (real engine)', () => {
 		expect(capped.truncated).toBe(true);
 		// The 10th (Mon 2 Nov) was left out: complete through the day before.
 		expect(capped.through).toBe('2026-11-01');
+		// 12:00 on 31 Oct in Berlin (CET): 11:00 UTC.
+		expect(capped.renewalAt).toBe(Date.UTC(2026, 9, 31, 11, 0));
 	});
 
 	it('leaves out what is past the horizon', async () => {
@@ -215,15 +218,17 @@ describe.skipIf(!engineBuilt)('buildSchedule (real engine)', () => {
 		// Cut by the horizon, not the cap: not "only the first 64 fit".
 		expect(cut.truncated).toBe(false);
 		expect(cut.through).toBe('2026-11-01');
+		// 12:00 on 31 Oct is after the horizon (00:00 UTC on 30 Oct).
+		expect(cut.renewalAt).toBeNull();
 	});
 
-	it('reports the 8-day horizon without calling it truncated', async () => {
+	it('reports a horizon inside the window without calling it truncated', async () => {
 		const late = snapshot({ 'reminders.rem': 'REM AT 23:00 MSG Late\n' });
-		// Opened at 10:00 in Berlin (09:00 UTC).
+		// Opened at 10:00 in Berlin (09:00 UTC); 8 days less a minute.
 		const s = await buildSchedule(client, late, {
 			tz,
 			now,
-			horizon: uploadHorizon(Date.UTC(2026, 9, 28, 9, 0))
+			horizon: Date.UTC(2026, 10, 5, 8, 59)
 		});
 		expect(s.notifications.map((n) => n.date)).toEqual([
 			'2026-10-28',
@@ -237,6 +242,16 @@ describe.skipIf(!engineBuilt)('buildSchedule (real engine)', () => {
 		]);
 		expect(s.truncated).toBe(false);
 		expect(s.through).toBe('2026-11-04');
+		// 12:00 on 3 Nov in Berlin (CET).
+		expect(s.renewalAt).toBe(Date.UTC(2026, 10, 3, 11, 0));
+	});
+
+	it('has no renewal when only today is complete', async () => {
+		const busy = snapshot({ 'reminders.rem': 'REM AT 23:00 MSG Late\n' });
+		const s = await buildSchedule(client, busy, { tz, now, max: 1 });
+		expect(s.notifications.length).toBe(1);
+		expect(s.through).toBe('2026-10-28');
+		expect(s.renewalAt).toBeNull();
 	});
 
 	it('stops at the cap even when the horizon is far', async () => {
