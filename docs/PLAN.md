@@ -166,13 +166,17 @@ Copy from Mycelium `src/lib/git/*`, `src/lib/sync/*` and their tests, then adapt
 ### 3.6 Notifications
 
 - While Fasti is open: local timers for today's queued `AT` reminders, honouring `+tdelta`, `*trepeat` and `NOQUEUE`. The times come from the engine.
-- While closed: reuse Mycelium's push design. Settings → Notifications subscribes the device. On each sync or app open, Fasti sends the next 8 days of `AT` reminders (at most 64), each encrypted on the device (RFC 8291) for that device. The worker's Durable Object stores only times and sealed messages and fires them with VAPID.
+- While closed: reuse Mycelium's push design. Settings → Notifications subscribes the device. On each sync or app open, Fasti sends today and the next 30 days of `AT` reminders (at most 512, about 3 MiB sealed in all), each encrypted on the device (RFC 8291) for that device. The worker's Durable Object stores only times and sealed messages (one storage key per message) and fires them with VAPID. `SCHED` functions are evaluated by Remind and followed as Remind's queue would.
 - iOS only allows Web Push for installed home-screen apps. Explain this in Settings with install steps.
 - Reliability (Web Push is the only way to notify while the app is closed; neither platform lets a web app schedule a local notification):
-  - Send every push with `Urgency: high` and a `TTL` of a few minutes, so Android's Doze mode doesn't hold it and a late one is dropped rather than arriving hours late.
+  - Send every push with `Urgency: high` so Android's Doze mode doesn't hold it, and a `TTL` of 3 hours: a phone that is offline at the time still gets the reminder when it reconnects, labelled "Due <time>" when it arrives more than 5 minutes late. The worker retries a failed send at +1, +5, +15 and +60 minutes inside that window.
   - The service worker always shows a visible notification for every push (iOS revokes subscriptions that don't).
   - On every app open, check `pushManager.getSubscription()` and re-subscribe and re-upload if it is gone or changed.
-  - Settings shows "Notifications scheduled through <date>", has "Send a test notification", and says plainly: the schedule covers 8 days from the last time Fasti was opened on this device; edits made elsewhere, or a time zone change, take effect on the next open; battery savers, Focus and Low Power Mode can delay notifications.
+  - The device keeps the last planned schedule (plaintext, in IndexedDB). When the browser replaces the subscription (`pushsubscriptionchange`) or on Chrome's periodic background sync (installed app, about every 12 hours), the service worker re-seals the stored future messages for the current subscription and uploads them. It can't run Remind, so it never re-plans.
+  - A last push, at noon the day before the schedule runs out, says "Open Fasti to keep reminders coming"; each upload replaces it.
+  - On open, Today lists reminders that were due while Fasti was closed but weren't shown on this device.
+  - Settings shows "Notifications scheduled through <date>", has "Send a test notification", and says plainly: the schedule covers 30 days from the last time Fasti was opened on this device; edits made elsewhere, or a time zone change, take effect on the next open; battery savers, Focus and Low Power Mode can delay notifications.
+- Native app (Capacitor, on-device notifications): considered 2026-10-29 and deferred by the owner. It would ship Apache-2.0 AndroidX libraries next to Remind (GPL-2.0-only), relying on Remind staying a separate program; the owner hasn't accepted that basis yet. On iOS, Apple's App Store terms conflict with the GPL; a shell that downloads the engine from the website was noted as the least risky route. Revisit only on the owner's decision.
 
 ### 3.6a Calendar export (ICS)
 
@@ -423,7 +427,8 @@ Keep this section current. One line per completed item, newest last.
 - [ ] Phase 5: notifications
   - [x] Local timers while open and encrypted Web Push while closed (RFC 8291; times from Remind's agenda and its queue rules), Settings section with status, test, iOS guidance and limits. Reviewed; fixes for payload size, the through-date status, retries and clock skew merged.
   - [x] ICS download (section 3.6a); the subscription feed was dropped (owner's decision).
-  - [ ] Manual push test on Android Chrome and an installed iOS PWA (needs the worker deployed). SCHED and ONCE are not handled yet.
+  - [ ] Hardening for Android/Chrome PWAs (owner's request, 2026-10-29; native app deferred): 30-day window and 512 cap, SCHED evaluated by Remind, 3-hour TTL with late labels and retries, per-message worker storage, re-seal on subscription change and periodic sync, renewal push, missed-reminder list on open (section 3.6). In progress.
+  - [ ] Manual push test on Android Chrome and an installed iOS PWA (needs the worker deployed).
 - [ ] Phase 6: PWA, performance, docs, deploy
   - [x] Service worker precaching the shell and the engine (works fully offline after one visit, tested), manifest and the owner's icons, update notice.
   - [x] Settings view (files, import/export, reset, display options).
