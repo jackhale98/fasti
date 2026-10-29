@@ -24,6 +24,7 @@ import {
 	type Vault
 } from '#lib/store/index.ts';
 import { toasts } from '#lib/ui/toast.svelte.ts';
+import { pwa } from '#lib/offline/pwa.svelte.ts';
 import { deviceZone } from './format.ts';
 
 class App {
@@ -73,9 +74,19 @@ class App {
 		}
 	}
 
+	/**
+	 * Whether the database was taken over by a newer Fasti (pwa.replaced): then
+	 * nothing is read or saved here, and the Reload offer is shown again.
+	 */
+	#stale(): boolean {
+		if (!pwa.replaced) return false;
+		pwa.offerReplacedReload();
+		return true;
+	}
+
 	/** Re-reads the vault after a change. */
 	async refresh() {
-		if (!this.#vault) return;
+		if (!this.#vault || this.#stale()) return;
 		const [snapshot, discovery] = await Promise.all([
 			this.#vault.snapshot(),
 			this.#vault.discover()
@@ -104,7 +115,7 @@ class App {
 	}
 
 	async setSettings(patch: Partial<Settings>) {
-		if (!this.#db) return;
+		if (!this.#db || this.#stale()) return;
 		this.settings = await updateSettings(this.#db, patch);
 	}
 
@@ -117,7 +128,7 @@ class App {
 		patch: (text: string) => PatchResult | null,
 		message: string
 	): Promise<boolean> {
-		if (!this.#vault) return false;
+		if (!this.#vault || this.#stale()) return false;
 		const result = await this.#vault.edit(path, patch, message);
 		if (!result) return false;
 		await this.refresh();
@@ -159,7 +170,7 @@ class App {
 
 	/** Undoes the last edit. */
 	async undo() {
-		if (!this.#vault) return;
+		if (!this.#vault || this.#stale()) return;
 		const step = await this.#vault.undo();
 		await this.refresh();
 		if (step) toasts.show('Undone');

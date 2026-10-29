@@ -8,6 +8,7 @@
  */
 import { dev } from '$app/env';
 import { resolve } from '$app/paths';
+import { onDatabaseReplaced } from '#lib/store/db.ts';
 import { toasts } from '#lib/ui/toast.svelte.ts';
 
 /** Look for a new version this often while the app stays open. */
@@ -20,6 +21,11 @@ class Pwa {
 	installed = $state(false);
 	/** A new version is installed and waiting for a reload. */
 	updateReady = $state(false);
+	/**
+	 * A newer Fasti (another window, or the service worker) took over the
+	 * database, so this tab's connection was closed: it can't save until reloaded.
+	 */
+	replaced = $state(false);
 
 	#started = false;
 	#registration: ServiceWorkerRegistration | null = null;
@@ -28,6 +34,10 @@ class Pwa {
 	init() {
 		if (this.#started || typeof window === 'undefined') return;
 		this.#started = true;
+		onDatabaseReplaced(() => {
+			this.replaced = true;
+			this.offerReplacedReload();
+		});
 		this.online = navigator.onLine;
 		addEventListener('online', () => (this.online = true));
 		addEventListener('offline', () => (this.online = false));
@@ -85,6 +95,14 @@ class Pwa {
 		if (this.updateReady) return;
 		this.updateReady = true;
 		toasts.offer('A new version of Fasti is ready.', { label: 'Reload', run: () => this.reload() });
+	}
+
+	/** Says this tab must reload to keep working (its database connection gave way). */
+	offerReplacedReload() {
+		toasts.offer('Fasti was updated in another window. Reload to keep using it.', {
+			label: 'Reload',
+			run: () => location.reload()
+		});
 	}
 
 	/** Switches to the new version. Edits are saved as they happen, so nothing is lost. */

@@ -54,7 +54,12 @@ export function bodyToShow(p: NotificationPayload, now = Date.now()): string {
 	return p.body ? `Due ${p.due} · ${p.body}` : `Due ${p.due}`;
 }
 
-const SHOWN_CACHE = 'fasti-notifications-shown';
+/**
+ * Not `fasti-…`: the service worker deletes every cache with that prefix but
+ * its own when a new version activates (#lib/offline/caching.ts, staleCaches),
+ * which would wipe this log.
+ */
+export const SHOWN_CACHE = 'notify-shown';
 /** Shown this session (also covers contexts without CacheStorage). */
 const shownHere = new Set<string>();
 

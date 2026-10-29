@@ -42,7 +42,15 @@ import {
 } from '#lib/store/db.ts';
 import { WORKER_URL } from './config.ts';
 import { fromBase64Url } from './encrypt.ts';
-import { afterDrops, findMissed, planFor, TEST_PREFIX, toPayload, whenText } from './outgoing.ts';
+import {
+	afterDrops,
+	catchUp,
+	MISSED_GRACE_MS,
+	planFor,
+	TEST_PREFIX,
+	toPayload,
+	whenText
+} from './outgoing.ts';
 import {
 	bodyToShow,
 	firstShowing,
@@ -75,11 +83,8 @@ const UPLOAD_DEBOUNCE_MS = 5000;
 const TEST_DELAY_MS = 5000;
 /** Re-plan local timers this long after the last edit. */
 const PLAN_DEBOUNCE_MS = 400;
-/**
- * Missed means due at least this long ago: a timer or push for the current
- * minute may still be on its way.
- */
-const MISSED_GRACE_MS = 60_000;
+/** Let timers for moments that passed while the page slept fire before a catch-up. */
+const SETTLE_MS = 250;
 
 /** The push record, with the last upload's summary. */
 export type NotifyPushRecord = PushRecord;
@@ -224,6 +229,10 @@ class Notifications {
 	#stop: (() => void) | null = null;
 	/** The catch-up in progress: the plan is saved only after it has read the old one. */
 	#caught: Promise<void> = Promise.resolve();
+	/** Bumped by each catch-up; an older run's results are dropped. */
+	#catchSeq = 0;
+	/** Local notifications being shown (a catch-up waits for them). */
+	#showing = new Set<Promise<unknown>>();
 
 	get active(): boolean {
 		return this.enabled && this.permission === 'granted';
@@ -257,11 +266,13 @@ class Notifications {
 			if (document.visibilityState !== 'visible') return;
 			if (typeof Notification !== 'undefined') this.permission = Notification.permission;
 			this.#caught = this.#catchUp();
-			this.#queuePlan(0);
+			// Re-plan (which clears the timers) once the catch-up has seen them settle.
+			void this.#caught.then(() => this.#queuePlan(0));
 		};
 		document.addEventListener('visibilitychange', onVisible);
 		this.#caught = this.#catchUp();
-		void pruneShown();
+		// Pruned after the catch-up has read the log it relies on.
+		void this.#caught.then(() => pruneShown());
 		void this.#openPush();
 		this.#stop = () => {
 			cleanup();
@@ -306,24 +317,35 @@ class Notifications {
 	 * plan is replaced (start() begins it at once).
 	 */
 	async #catchUp(): Promise<void> {
+		const mine = ++this.#catchSeq;
 		try {
+			// Timers for moments that passed while the page slept fire first, and
+			// what they show is logged before the log is read.
+			await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+			await Promise.allSettled([...this.#showing]);
 			const db = await this.#openDb();
-			const stored = await getPlan(db);
-			const to = Date.now() - MISSED_GRACE_MS;
-			if (!stored || !(to > stored.checkedAt)) return;
-			if (this.active) {
-				const found = await findMissed(stored.planned, stored.checkedAt, to, wasShown);
-				if (found.length) {
-					const known = new Set(this.missed.map((p) => p.payload.id));
-					this.missed = [...this.missed, ...found.filter((p) => !known.has(p.payload.id))];
-				}
+			const found = await catchUp({
+				getPlan: () => getPlan(db),
+				setPlan: (record) => setPlan(db, record),
+				wasShown,
+				markShown: firstShowing,
+				active: this.active,
+				isCurrent: () => mine === this.#catchSeq
+			});
+			if (found?.length) {
+				const known = new Set(this.missed.map((p) => p.payload.id));
+				this.missed = [...this.missed, ...found.filter((p) => !known.has(p.payload.id))];
 			}
-			// Each planned notification is looked at once. Re-read: a plan may have been saved meanwhile.
-			const latest = (await getPlan(db)) ?? stored;
-			await setPlan(db, { ...latest, checkedAt: Math.max(latest.checkedAt, to) });
 		} catch {
-			// No IndexedDB (private mode, say): no catch-up.
+			// No IndexedDB (private mode, or replaced by a newer Fasti): no catch-up.
 		}
+	}
+
+	/** Shows a local notification, tracked so a catch-up can wait for it. */
+	#show(payload: NotificationPayload): void {
+		const run = showNotification(payload).catch(() => false);
+		this.#showing.add(run);
+		void run.finally(() => this.#showing.delete(run));
 	}
 
 	/** Clears the missed list (its Dismiss button). */
@@ -389,7 +411,7 @@ class Notifications {
 				const delay = n.at - now;
 				if (delay < -STALE_MS) continue;
 				const payload = toPayload(n, app.settings.clock);
-				this.#timers.push(setTimeout(() => void showNotification(payload), Math.max(0, delay)));
+				this.#timers.push(setTimeout(() => this.#show(payload), Math.max(0, delay)));
 			}
 		}
 		this.pending = this.#timers.length;
@@ -504,17 +526,46 @@ class Notifications {
 		if (!record || !this.pushConfigured || !this.active) return;
 		const schedule = await this.#buildSchedule();
 		if (!schedule) return;
+		const current = await this.#currentSubscription(record);
 		const plan = planFor(schedule, app.settings.clock);
-		const result = await uploadSchedule(WORKER_URL!, record.subscription, this.#outgoing(plan));
+		const result = await uploadSchedule(WORKER_URL!, current.subscription, this.#outgoing(plan));
 		this.error = null;
-		const dropped = new Set(result.droppedAt);
-		await this.#savePlan(plan.filter((p) => !dropped.has(p.at)));
+		const dropped = new Set(result.dropped);
+		await this.#savePlan(plan.filter((p) => !dropped.has(p.payload.id)));
 		await this.#save({
-			...record,
-			...afterDrops(schedule, plan, result.droppedAt),
+			...current,
+			...afterDrops(schedule, plan, result.dropped),
 			uploadedAt: Date.now()
 		});
 		await this.#registerCheck();
+	}
+
+	/**
+	 * The record with the browser's current subscription: the service worker
+	 * may have re-subscribed while Fasti was closed (pushsubscriptionchange),
+	 * and an upload must never go back to the old address.
+	 */
+	async #currentSubscription(record: NotifyPushRecord): Promise<NotifyPushRecord> {
+		try {
+			const reg = await registration(false);
+			const sub = await reg?.pushManager?.getSubscription();
+			if (!sub) return record;
+			const json = sub.toJSON() as SubscriptionKeys & { expirationTime?: number | null };
+			if (!json.endpoint || json.endpoint === record.subscription.endpoint) return record;
+			const next: NotifyPushRecord = {
+				...record,
+				subscription: {
+					endpoint: json.endpoint,
+					expirationTime: json.expirationTime ?? null,
+					keys: json.keys
+				},
+				createdAt: Date.now()
+			};
+			await this.#save(next);
+			return next;
+		} catch {
+			return record;
+		}
 	}
 
 	#outgoing(plan: readonly PlannedPush[]): Outgoing[] {
@@ -555,8 +606,8 @@ class Notifications {
 	 * (through, count) always describes the real schedule.
 	 */
 	async sendTest(payload: NotificationPayload): Promise<void> {
-		const record = this.push;
-		if (!record) return;
+		if (!this.push) return;
+		const record = await this.#currentSubscription(this.push);
 		const schedule = await this.#buildSchedule();
 		const at = Date.now() + TEST_DELAY_MS;
 		const real = schedule ? this.#outgoing(planFor(schedule, app.settings.clock)) : [];

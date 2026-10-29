@@ -162,12 +162,43 @@ export interface FastiSchema extends DBSchema {
 
 export type FastiDB = IDBPDatabase<FastiSchema>;
 
+/** Told when a connection was closed because a newer Fasti needs the database. */
+const replacedListeners = new Set<() => void>();
+
+/**
+ * Calls `listener` when a connection in this context is closed for a newer
+ * version of the database (Fasti was updated in another window, or by the
+ * service worker). Returns an unsubscribe function.
+ */
+export function onDatabaseReplaced(listener: () => void): () => void {
+	replacedListeners.add(listener);
+	return () => replacedListeners.delete(listener);
+}
+
 /**
  * Open (and create or upgrade) the database. Each version's step runs once,
  * in order, so a browser on any older version catches up.
+ *
+ * A connection gives way to a newer version: when another window or the
+ * service worker opens the database at a higher version, this connection is
+ * closed (so that open doesn't hang) and onDatabaseReplaced listeners are
+ * told; later use of it fails with an error rather than waiting. `upTo`
+ * stops at an older version (tests only).
  */
-export function openFastiDB(name = DB_NAME): Promise<FastiDB> {
-	return openDB<FastiSchema>(name, DB_VERSION, {
+export function openFastiDB(name = DB_NAME, upTo = DB_VERSION): Promise<FastiDB> {
+	return openDB<FastiSchema>(name, upTo, {
+		blocking(_current, _blocked, event) {
+			(event.target as IDBDatabase).close();
+			for (const listener of replacedListeners) {
+				try {
+					listener();
+				} catch {
+					// One listener's failure doesn't stop the others.
+				}
+			}
+		},
+		// `blocked` isn't handled: an older connection that doesn't give way (a
+		// build from before `blocking`) holds this open until its window closes.
 		upgrade(db, oldVersion) {
 			if (oldVersion < 1) {
 				db.createObjectStore('vaults', { keyPath: 'id' });
@@ -177,7 +208,7 @@ export function openFastiDB(name = DB_NAME): Promise<FastiDB> {
 				db.createObjectStore('settings');
 				db.createObjectStore('push');
 			}
-			if (oldVersion < 2) {
+			if (oldVersion < 2 && upTo >= 2) {
 				db.createObjectStore('notify');
 			}
 			// Later versions: `if (oldVersion < 3) { ... }`, never editing a step above.
