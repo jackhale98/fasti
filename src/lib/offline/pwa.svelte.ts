@@ -8,7 +8,7 @@
  */
 import { dev } from '$app/env';
 import { resolve } from '$app/paths';
-import { onDatabaseReplaced } from '#lib/store/db.ts';
+import { onDatabaseBlocked, onDatabaseReplaced } from '#lib/store/db.ts';
 import { toasts } from '#lib/ui/toast.svelte.ts';
 
 /** Look for a new version this often while the app stays open. */
@@ -38,6 +38,13 @@ class Pwa {
 			this.replaced = true;
 			this.offerReplacedReload();
 		});
+		// An older window holds the database open; this one loads once it closes.
+		onDatabaseBlocked(() =>
+			toasts.offer('Close other Fasti windows to finish updating.', {
+				label: 'Retry',
+				run: () => location.reload()
+			})
+		);
 		this.online = navigator.onLine;
 		addEventListener('online', () => (this.online = true));
 		addEventListener('offline', () => (this.online = false));

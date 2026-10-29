@@ -175,6 +175,17 @@ export function onDatabaseReplaced(listener: () => void): () => void {
 	return () => replacedListeners.delete(listener);
 }
 
+const blockedListeners = new Set<() => void>();
+/**
+ * Calls `listener` when this window's open waits on an older connection that
+ * doesn't give way (another window still running a build from before
+ * `blocking`). The open completes by itself once that window closes.
+ */
+export function onDatabaseBlocked(listener: () => void): () => void {
+	blockedListeners.add(listener);
+	return () => blockedListeners.delete(listener);
+}
+
 /**
  * Open (and create or upgrade) the database. Each version's step runs once,
  * in order, so a browser on any older version catches up.
@@ -197,8 +208,15 @@ export function openFastiDB(name = DB_NAME, upTo = DB_VERSION): Promise<FastiDB>
 				}
 			}
 		},
-		// `blocked` isn't handled: an older connection that doesn't give way (a
-		// build from before `blocking`) holds this open until its window closes.
+		blocked() {
+			for (const listener of blockedListeners) {
+				try {
+					listener();
+				} catch {
+					// As above.
+				}
+			}
+		},
 		upgrade(db, oldVersion) {
 			if (oldVersion < 1) {
 				db.createObjectStore('vaults', { keyPath: 'id' });

@@ -58,6 +58,7 @@ import { staleCaches } from '../../src/lib/offline/caching';
 import {
 	getPlan,
 	getPush,
+	onDatabaseBlocked,
 	onDatabaseReplaced,
 	openFastiDB,
 	setPlan,
@@ -400,6 +401,24 @@ describe('a newer Fasti opening the database', () => {
 		expect(replaced).toHaveBeenCalledTimes(1);
 		// The old connection is closed: using it fails rather than hanging.
 		expect(() => v1.transaction('settings')).toThrow();
+		stop();
+		v2.close();
+	});
+
+	it('says so when an older build holds the database, then opens once it closes', async () => {
+		const name = `fasti-blocked-${process.pid}`;
+		// A connection from a build without `blocking`: it never gives way by itself.
+		const old = await new Promise<IDBDatabase>((resolve, reject) => {
+			const req = indexedDB.open(name, 1);
+			req.onupgradeneeded = () => req.result.createObjectStore('settings');
+			req.onsuccess = () => resolve(req.result);
+			req.onerror = () => reject(req.error);
+		});
+		const blocked = vi.fn(() => old.close());
+		const stop = onDatabaseBlocked(blocked);
+		const v2 = await openFastiDB(name);
+		expect(blocked).toHaveBeenCalledTimes(1);
+		expect(v2.version).toBe(2);
 		stop();
 		v2.close();
 	});
