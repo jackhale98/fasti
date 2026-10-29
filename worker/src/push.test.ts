@@ -67,6 +67,7 @@ function memoryStorage() {
 				.slice(0, o.limit);
 			return new Map(keys.map((k) => [k, structuredClone(data.get(k)) as T]));
 		},
+		transaction: async (f) => f(storage),
 		deleteAll: async () => data.clear(),
 		setAlarm: async (at) => void (alarm = at),
 		deleteAlarm: async () => void (alarm = null)
@@ -319,7 +320,7 @@ describe('PushQueue storage', () => {
 		expect(typeof r).toBe('object');
 		await putAll(queue, (r as { reminders: object[] }).reminders);
 		expect(mem.data.size).toBe(513);
-		expect(mem.data.get('meta')).toEqual({ endpoint: ENDPOINT, updated: now });
+		expect(mem.data.get('meta')).toEqual({ endpoint: ENDPOINT, updated: now, gen: now });
 		const keys = [...mem.data.keys()].filter((k) => k.startsWith('r:')).sort();
 		expect(keys).toHaveLength(512);
 		expect(mem.data.get(keys[0]!)).toEqual({ at: now + 60_000, payload });
@@ -348,6 +349,127 @@ describe('PushQueue storage', () => {
 		expect(fetch).toHaveBeenCalledTimes(3);
 		expect(mem.data.size).toBe(3);
 		expect(mem.alarm()).toBe(now + 31_000);
+	});
+
+	it('sends at most 40 per run and re-arms at once while more are due', async () => {
+		vi.useFakeTimers({ now: Date.UTC(2026, 9, 28, 9), toFake: ['Date'] });
+		const now = Date.now();
+		const mem = memoryStorage();
+		const queue = new PushQueue({ storage: mem.storage }, await vapidKeys());
+		await putAll(
+			queue,
+			Array.from({ length: 120 }, (_, i) => ({ at: now + i, payload: 'AQ' }))
+		);
+		const fetch = vi.fn(async () => new Response(null, { status: 201 }));
+		vi.stubGlobal('fetch', fetch);
+		for (const left of [80, 40, 0]) {
+			await queue.alarm();
+			expect(mem.data.size).toBe(left + 1);
+			expect(fetch).toHaveBeenCalledTimes(120 - left);
+			if (left) expect(mem.alarm()).toBeLessThanOrEqual(Date.now());
+		}
+	});
+
+	it('does not resend what was sent before a crash', async () => {
+		vi.useFakeTimers({ now: Date.UTC(2026, 9, 28, 9), toFake: ['Date'] });
+		const now = Date.now();
+		const mem = memoryStorage();
+		const queue = new PushQueue({ storage: mem.storage }, await vapidKeys());
+		await putAll(queue, [
+			{ at: now, payload: 'AQ' },
+			{ at: now + 1, payload: 'Ag' },
+			{ at: now + 2, payload: 'Aw' }
+		]);
+		let n = 0;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => {
+				if (++n === 2) throw new Error('boom');
+				return new Response(null, { status: 201 });
+			})
+		);
+		// Crash right after the second send's key is handled: make delete fail then.
+		const del = mem.storage.delete;
+		let deletes = 0;
+		mem.storage.delete = async (k) => {
+			if (++deletes === 2) throw new Error('crash');
+			return del(k);
+		};
+		await expect(queue.alarm()).rejects.toThrow('crash');
+		mem.storage.delete = del;
+		// The first is gone; the second (status 0 -> retry key) and third remain.
+		const fetch = vi.fn(async () => new Response(null, { status: 201 }));
+		vi.stubGlobal('fetch', fetch);
+		await queue.alarm();
+		expect(fetch).toHaveBeenCalledTimes(2);
+	});
+
+	it('a PUT during a send leaves the new schedule intact', async () => {
+		vi.useFakeTimers({ now: Date.UTC(2026, 9, 28, 9), toFake: ['Date'] });
+		const now = Date.now();
+		const mem = memoryStorage();
+		const queue = new PushQueue({ storage: mem.storage }, await vapidKeys());
+		await putAll(queue, [{ at: now, payload: 'AQ' }]);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => {
+				vi.setSystemTime(now + 1);
+				await putAll(queue, [{ at: now + 3_600_000, payload: 'Ag' }]);
+				return new Response(null, { status: 503 });
+			})
+		);
+		await queue.alarm();
+		const keys = [...mem.data.keys()].filter((k) => k.startsWith('r:'));
+		expect(keys).toHaveLength(1);
+		expect(mem.data.get(keys[0]!)).toEqual({ at: now + 3_600_000, payload: 'Ag' });
+		expect(mem.alarm()).toBe(now + 3_600_000);
+	});
+
+	it('gives a retry only the TTL that is left', async () => {
+		vi.useFakeTimers({ now: Date.UTC(2026, 9, 28, 9), toFake: ['Date'] });
+		const now = Date.now();
+		const mem = memoryStorage();
+		const queue = new PushQueue({ storage: mem.storage }, await vapidKeys());
+		await putAll(queue, [{ at: now, payload: 'AQ' }]);
+		const ttls: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_u: string, init: RequestInit) => {
+				ttls.push(new Headers(init.headers).get('ttl')!);
+				return new Response(null, { status: 503 });
+			})
+		);
+		await queue.alarm();
+		vi.setSystemTime(now + 60_000);
+		await queue.alarm();
+		expect(ttls).toEqual(['10800', '10740']);
+	});
+
+	it('refuses an oversized chunked body', async () => {
+		const env: Env = {
+			ALLOWED_ORIGINS: 'https://app.example',
+			...(await vapidKeys()),
+			REMINDERS: { idFromName: (n) => n, get: () => ({ fetch: async () => new Response(null) }) }
+		};
+		const chunk = new Uint8Array(1024 * 1024).fill(32);
+		let sent = 0;
+		const body = new ReadableStream<Uint8Array>({
+			pull(c) {
+				if (sent++ < 10) c.enqueue(chunk);
+				else c.close();
+			}
+		});
+		const res = await worker.fetch(
+			new Request('https://proxy.example/push/reminders', {
+				method: 'PUT',
+				headers: { Origin: 'https://app.example' },
+				body,
+				duplex: 'half'
+			} as RequestInit),
+			env
+		);
+		expect(res.status).toBe(413);
+		expect(sent).toBeLessThan(10);
 	});
 
 	it('refuses oversized bodies', async () => {

@@ -46,10 +46,12 @@ plan is plenty. Nothing here is needed to use Fasti without notifications.
    slash, then re-run "Deploy to GitHub Pages". The app needs nothing else for
    push: it fetches the VAPID public key from the worker's `GET /push/key`
    endpoint, so there is no `PUBLIC_VAPID_*` variable.
-9. Optional hardening. Rate limit for `PUT /push/reminders` per client IP: uncomment
-   the `ratelimits` block in `worker/wrangler.jsonc` (30 a minute) and deploy;
-   over the limit the worker answers 429. Without the `PUSH_RATE_LIMIT` binding
-   there is no limit. A Cloudflare rate-limiting rule on the whole route also works.
+9. Rate limit (on by default). `PUT` and `DELETE /push/reminders` are limited per
+   client IP by the `ratelimits` block in `worker/wrangler.jsonc` (30 a minute);
+   over the limit the worker answers 429. The `namespace_id` is an arbitrary
+   integer, unique within your account: change it if 1001 is already in use. Without
+   the `PUSH_RATE_LIMIT` binding there is no limit. A Cloudflare rate-limiting rule on
+   the whole route also works.
 
 Check it: `curl -H 'Origin: https://jackhale98.github.io' <worker>/push/key`
 should answer `{"key":"..."}`. A 501 means the VAPID secrets or Durable Object
@@ -89,23 +91,24 @@ Body (JSON, under 3 MiB):
   (`src/lib/push/encrypt.ts`); at most 5462 characters (4 KB of bytes). The worker
   never decrypts it.
 - Success: 204, no body. Failures: 400 with a plain-text reason, 413 if
-  `Content-Length` or the body is over 3 MiB, 405 for other methods.
+  `Content-Length` or the body is over 3 MiB (counted in bytes as it streams in), 405 for other methods.
 
 `DELETE /push/reminders` body `{"endpoint": "..."}` -> 204; deletes the schedule.
 
 Delivery (per subscription, by a Durable Object alarm): each reminder is POSTed
 to `endpoint` at its `at` (up to 30 s early) with `Authorization: vapid t=<JWT>, k=<public key>`
 (ES256, 12 h expiry), `Content-Encoding: aes128gcm`, `Content-Type: application/octet-stream`,
-`TTL: 10800` (3 h; a late reminder beats none), `Urgency: high`, and the decoded payload as the body. The schedule
+`TTL` of the seconds left until 3 h after its `at` (10800 at most; a late reminder beats none; nothing is sent once it is 0), `Urgency: high`, and the decoded payload as the body. The schedule
 is deleted when the push service answers 400, 403, 404 or 410, and 40 days after
 its last `PUT`. After a 429, a 5xx or a network error the message is retried
 1, 5, 15 and 60 minutes after the first failure, while still within 3 hours of its
 `at`, then dropped. Storage is one Durable Object key per reminder
-(`r:<time>:<n>`) plus a `meta` key.
+(`r:<generation>:<time>:<n>`) plus a `meta` key. Each alarm run sends at most 40
+(Workers Free allows 50 subrequests per invocation) and re-arms at once if more are due.
 The Durable Object stores the push `endpoint` as well as the times and sealed
 messages (the endpoint is a capability to push to that browser); it cannot read
 the messages.
-A browser that exceeds the rate limit gets 429 on `PUT`. The app re-sends the schedule on every open or sync.
+A browser that exceeds the rate limit gets 429 on `PUT` or `DELETE`. The app re-sends the schedule on every open or sync.
 
 A wrong `VAPID_SUBJECT` or key makes Apple answer 403, which deletes the list;
 each device re-uploads on its next open.

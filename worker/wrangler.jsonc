@@ -24,12 +24,12 @@
 		// "EXTRA_GIT_HOSTS": "git.example.com",
 		// "DAV_HOSTS": "cloud.example.com",
 		// "VAPID_SUBJECT": "mailto:you@example.com",
-	}
-	// Optional rate limit on PUT /push/reminders per client IP (off while this is absent).
-	// Uncomment, deploy; see docs/setup-worker.md.
-	// "ratelimits": [
-	//   { "name": "PUSH_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
-	// ],
+	},
+	// Rate limit on PUT and DELETE /push/reminders per client IP: 30 a minute. The
+	// namespace_id is an arbitrary integer, unique within your Cloudflare account.
+	"ratelimits": [
+		{ "name": "PUSH_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
+	],
 	// OAuth client credentials are secrets, never vars:
 	//   npx wrangler secret put GITHUB_CLIENT_ID
 	//   npx wrangler secret put GITHUB_CLIENT_SECRET

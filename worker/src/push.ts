@@ -23,7 +23,7 @@ export interface PushEnv {
 	VAPID_PRIVATE_KEY?: string;
 	/** Contact for push services: `mailto:…` or an https URL. */
 	VAPID_SUBJECT?: string;
-	/** Optional Cloudflare Rate Limiting binding for PUT /push/reminders; unlimited when absent. */
+	/** Optional Cloudflare Rate Limiting binding for PUT and DELETE /push/reminders (per client IP); unlimited when absent. */
 	PUSH_RATE_LIMIT?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
 
@@ -46,10 +46,16 @@ export interface DurableObjectStorage {
 		end?: string;
 		limit?: number;
 	}): Promise<Map<string, T>>;
+	/** All-or-nothing group of writes. */
+	transaction<T>(closure: (txn: DurableObjectTransaction) => Promise<T>): Promise<T>;
 	deleteAll(): Promise<void>;
 	setAlarm(at: number): Promise<void>;
 	deleteAlarm(): Promise<void>;
 }
+export type DurableObjectTransaction = Pick<
+	DurableObjectStorage,
+	'get' | 'put' | 'delete' | 'list'
+>;
 export interface DurableObjectState {
 	storage: DurableObjectStorage;
 }
@@ -67,6 +73,8 @@ const TTL = 10_800;
 const RETRY_OFFSETS = [60_000, 300_000, 900_000, 3_600_000];
 /** Most keys one storage put/delete call may take. */
 const BATCH = 128;
+/** Sends per alarm run: Workers' Free plan allows 50 subrequests per invocation. */
+const MAX_SENDS = 40;
 /** Push service answers that mean the address is gone or never was one. */
 const DROPPED = [400, 403, 404, 410];
 
@@ -111,13 +119,18 @@ interface Item extends Queued {
 interface Meta {
 	endpoint: string;
 	updated: number;
+	/** Bumped by every PUT and part of every key, so an alarm that was mid-send when a
+	 * PUT replaced the list can never touch the new keys. */
+	gen: number;
 }
 
 const pad = (n: number, width: number) => String(Math.max(0, Math.floor(n))).padStart(width, '0');
-/** Key sorting by send time; `seq` keeps equal times apart. */
-const itemKey = (due: number, seq: string) => `r:${pad(due, 15)}:${seq}`;
-const keyTime = (key: string) => Number(key.split(':')[1]);
-const keySeq = (key: string) => key.split(':')[2] ?? '0000';
+/** Key `r:<generation>:<time>:<seq>`: sorts by send time within a generation. */
+const genPrefix = (gen: number) => `r:${pad(gen, 15)}:`;
+const itemKey = (gen: number, due: number, seq: string) =>
+	`${genPrefix(gen)}${pad(due, 15)}:${seq}`;
+const keyTime = (key: string) => Number(key.split(':')[2]);
+const keySeq = (key: string) => key.split(':')[3] ?? '0000';
 
 /** Check a schedule a browser sent; an error message, or what to store. */
 export function readSchedule(
@@ -214,22 +227,35 @@ export class PushQueue {
 			endpoint: string;
 			reminders: Queued[];
 		};
-		const meta: Meta = { endpoint, updated: Date.now() };
-		await storage.deleteAll();
-		await storage.put('meta', meta);
-		for (let i = 0; i < reminders.length; i += BATCH) {
-			const batch: Record<string, unknown> = {};
-			reminders.slice(i, i + BATCH).forEach((r, k) => {
-				const item: Item = { at: r.at, payload: r.payload };
-				batch[itemKey(r.at, pad(i + k, 4))] = item;
-			});
-			await storage.put(batch);
-		}
+		const now = Date.now();
+		// One transaction: the old list goes and the new one (with a new generation)
+		// arrives, or nothing changes.
+		const meta = await storage.transaction(async (txn) => {
+			const old = await txn.get<Meta>('meta');
+			const meta: Meta = { endpoint, updated: now, gen: Math.max(now, (old?.gen ?? 0) + 1) };
+			const oldKeys = [...(await txn.list({ prefix: 'r:' })).keys()];
+			for (let i = 0; i < oldKeys.length; i += BATCH) await txn.delete(oldKeys.slice(i, i + BATCH));
+			await txn.put('meta', meta);
+			for (let i = 0; i < reminders.length; i += BATCH) {
+				const batch: Record<string, unknown> = {};
+				reminders.slice(i, i + BATCH).forEach((r, k) => {
+					const item: Item = { at: r.at, payload: r.payload };
+					batch[itemKey(meta.gen, r.at, pad(i + k, 4))] = item;
+				});
+				await txn.put(batch);
+			}
+			return meta;
+		});
 		await this.#wake(meta);
 		return new Response(null, { status: 204 });
 	}
 
-	/** Send what's due, then sleep until the next one (or the list expires). */
+	/**
+	 * Send what's due (at most MAX_SENDS per run), then sleep until the next one (or
+	 * the list expires). Each key is settled right after its send, so a crash never
+	 * resends it. Without `meta` there is nothing to send to: whatever `r:` keys exist
+	 * are corrupt leftovers and everything is deleted; nothing is re-armed.
+	 */
 	async alarm(): Promise<void> {
 		const storage = this.state.storage;
 		const meta = await storage.get<Meta>('meta');
@@ -238,45 +264,55 @@ export class PushQueue {
 			await storage.deleteAll();
 			return;
 		}
-		const due = await storage.list<Item>({ prefix: 'r:', end: `r:${pad(now + 30_001, 15)}` });
-		const finished: string[] = [];
-		const retry: Record<string, Item> = {};
+		const due = await storage.list<Item>({
+			start: genPrefix(meta.gen),
+			end: `${genPrefix(meta.gen)}${pad(now + 30_001, 15)}`,
+			limit: MAX_SENDS
+		});
 		for (const [key, item] of due) {
-			const status = await this.#send(meta.endpoint, item.payload, now);
+			const t = Date.now();
+			// Seconds left of the original window; a retry gets a shorter TTL.
+			const ttl = Math.min(TTL, Math.ceil((item.at + TTL * 1000 - t) / 1000));
+			const status = ttl > 0 ? await this.#send(meta.endpoint, item.payload, t, ttl) : -1;
+			// A PUT replaced the list while we were sending; it re-armed the alarm.
+			if ((await storage.get<Meta>('meta'))?.gen !== meta.gen) return;
 			// The browser dropped this subscription, or the address is junk: forget it.
 			if (DROPPED.includes(status)) {
 				await storage.deleteAll();
 				return;
 			}
-			finished.push(key);
 			// Busy push service or network error: try again at +1, +5, +15, +60 minutes
 			// after the first failure, while the message is inside its TTL window.
 			if (status === 0 || status === 429 || status >= 500) {
 				const tries = item.tries ?? 0;
-				const failed = item.failed ?? now;
+				const failed = item.failed ?? t;
 				const offset = RETRY_OFFSETS[tries];
 				if (offset !== undefined && failed + offset < item.at + TTL * 1000)
-					retry[itemKey(failed + offset, keySeq(key))] = { ...item, tries: tries + 1, failed };
+					await storage.put(itemKey(meta.gen, failed + offset, keySeq(key)), {
+						...item,
+						tries: tries + 1,
+						failed
+					});
 			}
+			await storage.delete([key]);
 		}
-		for (let i = 0; i < finished.length; i += BATCH)
-			await storage.delete(finished.slice(i, i + BATCH));
-		const retryKeys = Object.keys(retry);
-		for (let i = 0; i < retryKeys.length; i += BATCH) {
-			const batch: Record<string, unknown> = {};
-			for (const k of retryKeys.slice(i, i + BATCH)) batch[k] = retry[k];
-			await storage.put(batch);
-		}
-		await this.#wake(meta);
+		await this.#wake(meta, due.size === MAX_SENDS);
 	}
 
-	async #wake(meta: Meta) {
-		const first = await this.state.storage.list<Item>({ prefix: 'r:', limit: 1 });
+	async #wake(meta: Meta, more = false) {
+		const first = await this.state.storage.list<Item>({ prefix: genPrefix(meta.gen), limit: 1 });
 		const key = first.keys().next().value;
-		await this.state.storage.setAlarm(key === undefined ? meta.updated + EXPIRY : keyTime(key));
+		// Cut short by MAX_SENDS with more due: carry on at once.
+		await this.state.storage.setAlarm(
+			key === undefined
+				? meta.updated + EXPIRY
+				: more && keyTime(key) <= Date.now() + 30_000
+					? Date.now()
+					: Math.max(keyTime(key), Date.now())
+		);
 	}
 
-	async #send(endpoint: string, payload: string, now: number): Promise<number> {
+	async #send(endpoint: string, payload: string, now: number, ttl: number): Promise<number> {
 		const env = this.env;
 		if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return 0;
 		try {
@@ -294,8 +330,8 @@ export class PushQueue {
 					),
 					'Content-Encoding': 'aes128gcm',
 					'Content-Type': 'application/octet-stream',
-					// A late reminder beats none: the push service may hold it for three hours.
-					TTL: String(TTL),
+					// A late reminder beats none: held up to three hours after its time.
+					TTL: String(ttl),
 					Urgency: 'high'
 				},
 				body: fromB64url(payload)
@@ -305,6 +341,31 @@ export class PushQueue {
 			return 0;
 		}
 	}
+}
+
+/** The body as text, counting bytes as they arrive; null (and stop reading) past `max`. */
+export async function readLimited(request: Request, max: number): Promise<string | null> {
+	if (!request.body) return '';
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.byteLength;
+		if (total > max) {
+			await reader.cancel();
+			return null;
+		}
+		chunks.push(value);
+	}
+	const all = new Uint8Array(total);
+	let at = 0;
+	for (const c of chunks) {
+		all.set(c, at);
+		at += c.byteLength;
+	}
+	return new TextDecoder().decode(all);
 }
 
 /** `/push/key` and `/push/reminders` for the browser. */
@@ -326,16 +387,15 @@ export async function pushRoute(
 	if (url.pathname !== '/push/reminders') return reply(404, 'Not found');
 	if (request.method !== 'PUT' && request.method !== 'DELETE')
 		return reply(405, 'Use PUT or DELETE');
-	if (request.method === 'PUT' && env.PUSH_RATE_LIMIT) {
+	if (env.PUSH_RATE_LIMIT) {
 		const key = request.headers.get('cf-connecting-ip') ?? 'unknown';
 		if (!(await env.PUSH_RATE_LIMIT.limit({ key })).success) return reply(429, 'Too many requests');
 	}
 	if (Number(request.headers.get('content-length') ?? 0) > MAX_BODY) return reply(413, 'Too large');
 	let body: unknown;
 	try {
-		const text = await request.text();
-		// Not every request states its length: check what actually arrived.
-		if (text.length > MAX_BODY) return reply(413, 'Too large');
+		const text = await readLimited(request, MAX_BODY);
+		if (text === null) return reply(413, 'Too large');
 		body = JSON.parse(text);
 	} catch {
 		return reply(400, 'Expected JSON');
