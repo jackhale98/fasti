@@ -18,18 +18,40 @@ export interface NotificationPayload {
 	body: string;
 	/** Path to open, relative to the app's base (`''` for Today). */
 	url: string;
+	/** Epoch ms of the moment it was meant to be shown (from Remind's schedule). */
+	at?: number;
+	/** That moment as the page formatted it ("9:30am" or "09:30"), for a late label. */
+	due?: string;
 }
+
+/** A notification shown more than this after its moment says when it was due. */
+export const LATE_MS = 5 * 60_000;
+/** The longest `due` label kept. */
+const MAX_DUE = 32;
 
 /** Reads a payload from a push message's JSON, or null. */
 export function readPayload(value: unknown): NotificationPayload | null {
 	const v = value as Partial<Record<keyof NotificationPayload, unknown>> | null;
 	if (!v || typeof v !== 'object' || typeof v.title !== 'string') return null;
-	return {
+	const out: NotificationPayload = {
 		id: typeof v.id === 'string' ? v.id : '',
 		title: v.title,
 		body: typeof v.body === 'string' ? v.body : '',
 		url: typeof v.url === 'string' ? v.url : ''
 	};
+	if (typeof v.at === 'number' && Number.isFinite(v.at)) out.at = v.at;
+	if (typeof v.due === 'string' && v.due) out.due = v.due.slice(0, MAX_DUE);
+	return out;
+}
+
+/**
+ * The body to show: prefixed with "Due 9:30am · " when shown more than
+ * LATE_MS after its moment (a push held by Doze, a device that was off).
+ * Compares two epoch ms; never works out a date.
+ */
+export function bodyToShow(p: NotificationPayload, now = Date.now()): string {
+	if (p.at === undefined || !p.due || !(now - p.at > LATE_MS)) return p.body;
+	return p.body ? `Due ${p.due} · ${p.body}` : `Due ${p.due}`;
 }
 
 const SHOWN_CACHE = 'fasti-notifications-shown';
@@ -56,13 +78,34 @@ export async function firstShowing(id: string): Promise<boolean> {
 	}
 }
 
-/** Forgets occurrences shown more than two days ago. */
+/**
+ * Whether this occurrence has been shown on this device, without marking it.
+ * False when CacheStorage can't tell.
+ */
+export async function wasShown(id: string): Promise<boolean> {
+	if (!id) return false;
+	if (shownHere.has(id)) return true;
+	try {
+		const cache = await caches.open(SHOWN_CACHE);
+		return !!(await cache.match(`/shown/${encodeURIComponent(id)}`));
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * How long the shown log is kept: longer than the push schedule reaches, so
+ * the catch-up on open can tell what was shown while Fasti was closed.
+ */
+export const SHOWN_RETENTION_MS = 32 * 86_400_000;
+
+/** Forgets occurrences shown more than SHOWN_RETENTION_MS ago. */
 export async function pruneShown(): Promise<void> {
 	try {
 		const cache = await caches.open(SHOWN_CACHE);
 		for (const req of await cache.keys()) {
 			const at = Number(await (await cache.match(req))?.text());
-			if (!(Date.now() - at < 2 * 86_400_000)) await cache.delete(req);
+			if (!(Date.now() - at < SHOWN_RETENTION_MS)) await cache.delete(req);
 		}
 	} catch {
 		// No CacheStorage (an insecure context): nothing to prune.

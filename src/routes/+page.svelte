@@ -9,6 +9,7 @@
 	import { agenda, calendar } from '#lib/engine/client.ts';
 	import type { AgendaResult, CalendarDay } from '#lib/engine/types.ts';
 	import ItemRow from '#lib/ui/ItemRow.svelte';
+	import MissedNotifications from '#lib/ui/MissedNotifications.svelte';
 	import Section from '#lib/ui/today/Section.svelte';
 	import { sections, upcoming, visibleEntries } from '#lib/ui/today/model.ts';
 
@@ -87,6 +88,8 @@
 					· Day off{/if}
 			</p>
 		</header>
+
+		<MissedNotifications />
 
 		{#if problems}
 			<p class="note">

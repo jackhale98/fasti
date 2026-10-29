@@ -145,6 +145,67 @@ test.describe('with permission granted', () => {
 			.toContainEqual(expect.stringMatching(/^Timer check (2 minutes from now|in 2 minutes)/));
 	});
 
+	test('lists notifications missed while Fasti was closed, once', async ({ page }) => {
+		await page.setViewportSize({ width: 360, height: 740 });
+		await page.goto('/settings');
+		await section(page).getByRole('button', { name: 'Turn on notifications' }).click();
+		await expect(section(page).getByText('Notifications are on for this device.')).toBeVisible();
+		// The plan kept on the device, as a closed Fasti left it: one notification
+		// passed unseen, one was shown (by a push, say), one is still to come.
+		await page.evaluate(async () => {
+			const now = Date.now();
+			const item = (id: string, title: string, at: number) => ({
+				at,
+				date: '2026-10-28',
+				payload: { id, title, body: 'Today at 9:30am · reminders.rem', url: '', at, due: '9:30am' }
+			});
+			const shown = await caches.open('fasti-notifications-shown');
+			await shown.put(`/shown/${encodeURIComponent('shown-1')}`, new Response(String(now)));
+			await new Promise<void>((resolve, reject) => {
+				const open = indexedDB.open('fasti');
+				open.onerror = () => reject(open.error);
+				open.onsuccess = () => {
+					const tx = open.result.transaction('notify', 'readwrite');
+					tx.objectStore('notify').put(
+						{
+							planned: [
+								item('missed-1', 'Water the plants', now - 3_600_000),
+								item('shown-1', 'Already seen', now - 1_800_000),
+								item('later-1', 'Still to come', now + 3_600_000)
+							],
+							savedAt: now - 7_200_000,
+							checkedAt: now - 7_200_000
+						},
+						'plan'
+					);
+					tx.oncomplete = () => {
+						open.result.close();
+						resolve();
+					};
+					tx.onerror = () => reject(tx.error);
+				};
+			});
+		});
+		await page.goto('/');
+		const missed = page.getByRole('region', { name: 'Missed while Fasti was closed' });
+		await expect(missed).toBeVisible();
+		await expect(missed.getByRole('listitem')).toHaveCount(1);
+		await expect(missed).toContainText('Water the plants');
+		await expect(missed).toContainText('Wed 28 Oct · 9:30am');
+		expect(await seriousAxe(page)).toEqual([]);
+		const overflow = await page.evaluate(
+			() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+		);
+		expect(overflow).toBeLessThanOrEqual(0);
+
+		await missed.getByRole('button', { name: 'Dismiss missed notifications' }).click();
+		await expect(missed).toHaveCount(0);
+		// Each is listed once: not again on the next open.
+		await page.reload();
+		await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+		await expect(page.getByTestId('missed')).toHaveCount(0);
+	});
+
 	test('fits a 360 px screen', async ({ page }) => {
 		await page.setViewportSize({ width: 360, height: 740 });
 		await page.goto('/settings');

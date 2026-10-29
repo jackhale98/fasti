@@ -10,10 +10,11 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { VaultPath } from '../engine/types';
 import type { Edit } from '../lens/types';
+import type { NotificationPayload } from '../notify/payload';
 import type { LineEnding } from './text';
 
 export const DB_NAME = 'fasti';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 /** Where a vault's files come from. Only `browser` exists before Phase 4. */
 export type ProviderId = 'browser' | 'github' | 'git' | 'dropbox' | 'onedrive' | 'webdav';
@@ -111,6 +112,40 @@ export interface PushRecord {
 	vault: string;
 	/** `Date.now()` when subscribed. */
 	createdAt: number;
+	/** The worker's VAPID public key the subscription was made with. */
+	key?: string;
+	/** The worker the schedule goes to (the service worker re-uploads there). */
+	worker?: string;
+	/** Last day fully covered by the last upload (Remind's date). */
+	through?: string;
+	/** How many notifications the last upload held. */
+	count?: number;
+	/** Whether the last upload left notifications out (the cap or the size budget). */
+	truncated?: boolean;
+	/** `Date.now()` of the last upload. */
+	uploadedAt?: number;
+}
+
+/** One planned notification, in plain text, as last uploaded or set as a timer. */
+export interface PlannedPush {
+	/** Epoch ms to show it (from Remind). */
+	at: number;
+	/** The day it is shown on (Remind's date), for listing it as missed; absent for the renewal nudge. */
+	date?: string;
+	payload: NotificationPayload;
+}
+
+/**
+ * The last plan, kept only on this device (never sent anywhere in plain
+ * text): the service worker re-seals its future part for a new push
+ * subscription, and the page lists what passed unseen while Fasti was closed.
+ */
+export interface NotifyPlanRecord {
+	planned: PlannedPush[];
+	/** `Date.now()` when saved. */
+	savedAt: number;
+	/** `Date.now()` up to which missed notifications have been looked for. */
+	checkedAt: number;
 }
 
 export interface FastiSchema extends DBSchema {
@@ -121,6 +156,8 @@ export interface FastiSchema extends DBSchema {
 	settings: { key: 'app'; value: Settings };
 	/** One record under the key `subscription`. */
 	push: { key: 'subscription'; value: PushRecord };
+	/** One record under the key `plan` (version 2). */
+	notify: { key: 'plan'; value: NotifyPlanRecord };
 }
 
 export type FastiDB = IDBPDatabase<FastiSchema>;
@@ -140,7 +177,10 @@ export function openFastiDB(name = DB_NAME): Promise<FastiDB> {
 				db.createObjectStore('settings');
 				db.createObjectStore('push');
 			}
-			// Later versions: `if (oldVersion < 2) { ... }`, never editing a step above.
+			if (oldVersion < 2) {
+				db.createObjectStore('notify');
+			}
+			// Later versions: `if (oldVersion < 3) { ... }`, never editing a step above.
 		}
 	});
 }
@@ -165,4 +205,13 @@ export function getPush(db: FastiDB): Promise<PushRecord | undefined> {
 export async function setPush(db: FastiDB, record: PushRecord | null): Promise<void> {
 	if (record) await db.put('push', record, 'subscription');
 	else await db.delete('push', 'subscription');
+}
+
+export async function getPlan(db: FastiDB): Promise<NotifyPlanRecord | undefined> {
+	return db.get('notify', 'plan');
+}
+
+export async function setPlan(db: FastiDB, record: NotifyPlanRecord | null): Promise<void> {
+	if (record) await db.put('notify', record, 'plan');
+	else await db.delete('notify', 'plan');
 }
