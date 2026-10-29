@@ -72,7 +72,7 @@ binding and both VAPID secrets exist.
 The app passes it (decoded) as `applicationServerKey` to `pushManager.subscribe`.
 
 `PUT /push/reminders` replaces the whole schedule for one subscription.
-Body (JSON, under 512 KB):
+Body (JSON, under 3 MiB):
 
 ```json
 { "endpoint": "<PushSubscription.endpoint>", "reminders": [{ "at": 1793000000000, "payload": "<base64url>" }] }
@@ -81,25 +81,27 @@ Body (JSON, under 512 KB):
 - `endpoint`: https, no port, at most 1024 chars, host `fcm.googleapis.com`,
   `updates.push.services.mozilla.com`, `push.services.mozilla.com`,
   `web.push.apple.com` or `notify.windows.com` (or a subdomain). Else 400.
-- `reminders`: at most 64. Each `at` is a finite number, epoch milliseconds, at
-  most 8 days after the worker's clock (else 400). Entries more than 60 s in the
+- `reminders`: at most 512. Each `at` is a finite number, epoch milliseconds, at
+  most 32 days after the worker's clock (else 400). Entries more than 60 s in the
   past are dropped silently. The list is stored sorted by `at`.
 - `payload`: base64url (`A-Za-z0-9_-`, no padding) of the finished RFC 8291
   `aes128gcm` body, encrypted on the device for that subscription
   (`src/lib/push/encrypt.ts`); at most 5462 characters (4 KB of bytes). The worker
   never decrypts it.
 - Success: 204, no body. Failures: 400 with a plain-text reason, 413 if
-  `Content-Length` is over 512 KB, 405 for other methods.
+  `Content-Length` or the body is over 3 MiB, 405 for other methods.
 
 `DELETE /push/reminders` body `{"endpoint": "..."}` -> 204; deletes the schedule.
 
 Delivery (per subscription, by a Durable Object alarm): each reminder is POSTed
 to `endpoint` at its `at` (up to 30 s early) with `Authorization: vapid t=<JWT>, k=<public key>`
 (ES256, 12 h expiry), `Content-Encoding: aes128gcm`, `Content-Type: application/octet-stream`,
-`TTL: 300`, `Urgency: high`, and the decoded payload as the body. The schedule
-is deleted when the push service answers 400, 403, 404 or 410, and 14 days after
-its last `PUT`. After a 429, a 5xx or a network error the message is tried once
-more a minute later if it would still be within its 5 minute TTL, else dropped.
+`TTL: 10800` (3 h; a late reminder beats none), `Urgency: high`, and the decoded payload as the body. The schedule
+is deleted when the push service answers 400, 403, 404 or 410, and 40 days after
+its last `PUT`. After a 429, a 5xx or a network error the message is retried
+1, 5, 15 and 60 minutes after the first failure, while still within 3 hours of its
+`at`, then dropped. Storage is one Durable Object key per reminder
+(`r:<time>:<n>`) plus a `meta` key.
 The Durable Object stores the push `endpoint` as well as the times and sealed
 messages (the endpoint is a capability to push to that browser); it cannot read
 the messages.
