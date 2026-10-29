@@ -51,15 +51,11 @@
  *   Remind's `localtoutc()` like the rest, so a device re-plans before its
  *   schedule runs out.
  *
- * `ONCE`: Remind honours ONCE only when the run's date is its real today
- * (`init.c` sets IgnoreOnce otherwise), and then compares today with the
- * script's access date (`GetOnceDate()` in `main.c`; no `$OnceFile` here).
- * The engine writes the vault to a fresh MEMFS for every run, so the access
- * date is always today: on day 0 a ONCE reminder counts as already issued,
- * so it is neither in the agenda nor queued (`ShouldQueueReminder()` checks
- * ONCE too) and gets no notification; on later days, run with a date other
- * than the real today, ONCE is ignored and it is queued as usual. That is
- * Remind's own answer for these runs, so nothing here special-cases ONCE.
+ * `ONCE`: every engine run passes `-o` (src/lib/engine/run.ts), so ONCE is
+ * ignored. Without it, on Remind's real today a ONCE reminder would count as
+ * already issued (the engine writes the vault afresh for every run, so the
+ * script's access date is always today; `GetOnceDate()` in `main.c`) and get
+ * no notification. A notification is shown once per occurrence anyway.
  *
  * Limits: a SCHED function is evaluated once, in a run at Remind's today,
  * so one that depends on `today()`, `now()` or trigger state may give other

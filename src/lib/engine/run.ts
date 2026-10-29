@@ -172,7 +172,10 @@ export async function runRemind(engine: Engine, input: RunInput): Promise<RunOut
 	fs.chdir('/vault');
 	let code: number | undefined;
 	try {
-		code = instance.callMain(['-r', ...input.args]);
+		// -r: no RUN, shell() or INCLUDECMD (always first). -o: ignore ONCE, which
+		// compares today with the script's access date, and every run writes the
+		// vault afresh, so Remind would take each ONCE reminder as already issued.
+		code = instance.callMain(['-r', '-o', ...input.args]);
 	} catch (e) {
 		const status = (e as { status?: unknown }).status;
 		if (typeof status !== 'number') throw e;

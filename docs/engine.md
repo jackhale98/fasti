@@ -78,17 +78,20 @@ is the spike's copy for the low-level tests.
    default `0666` is refused: `SECURITY: Won't read world-writable file or
    directory!`. Then `FS.chdir('/vault')`, which is what `INCLUDE` paths are
    relative to.
-5. `callMain(['-r', …])`. `-r` always comes first. Catch `ExitStatus`
+5. `callMain(['-r', '-o', …])`. `-r` always comes first. `-o` ignores `ONCE`:
+   Remind compares today with the script's access date, which is always today
+   in a fresh MEMFS, so it would treat every `ONCE` reminder as already
+   issued. Catch `ExitStatus`
    (`e.status`) and use `onExit` for the code.
 
 ## Invocations (confirmed)
 
 | Purpose | Command |
 | --- | --- |
-| Agenda for a day | `remind -r --json -q -h /vault/<main> YYYY-MM-DD@HH:MM` |
-| Calendar for a range | `remind -r -ppp<months> -b2 [-m] [--hide-completed-todos] /vault/<main> YYYY-MM-01` |
-| Weekly calendar | `remind -r -ppp+<weeks> -b2 [-m] … /vault/<main> YYYY-MM-DD` |
-| Next date of every reminder | `remind -r -n /vault/<main> YYYY-MM-DD` |
+| Agenda for a day | `remind -r -o --json -q -h /vault/<main> YYYY-MM-DD@HH:MM` |
+| Calendar for a range | `remind -r -o -ppp<months> -b2 [-m] [--hide-completed-todos] /vault/<main> YYYY-MM-01` |
+| Weekly calendar | `remind -r -o -ppp+<weeks> -b2 [-m] … /vault/<main> YYYY-MM-DD` |
+| Next date of every reminder | `remind -r -o -n /vault/<main> YYYY-MM-DD` |
 | Diagnostics | `file(line): message` lines on stderr |
 
 Notes:
