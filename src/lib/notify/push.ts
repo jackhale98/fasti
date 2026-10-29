@@ -134,20 +134,27 @@ export interface Sealed {
  * left out rather than failing the whole list.
  */
 export async function sealAll(sub: SubscriptionKeys, list: readonly Outgoing[]): Promise<Sealed[]> {
+	return (await sealEach(sub, list)).filter((m): m is Sealed => m !== null);
+}
+
+/** Each message sealed, in order, or null where it wouldn't fit the worker's limit. */
+async function sealEach(
+	sub: SubscriptionKeys,
+	list: readonly Outgoing[]
+): Promise<(Sealed | null)[]> {
 	const p256dh = sub.keys?.p256dh;
 	const auth = sub.keys?.auth;
 	if (!p256dh || !auth) throw new Error('The push subscription has no encryption keys.');
 	const ua = fromBase64Url(p256dh);
 	const secret = fromBase64Url(auth);
-	const sealed = await Promise.all(
-		list.map(async (m) => ({
-			at: m.at,
-			payload: toBase64Url(
+	return Promise.all(
+		list.map(async (m) => {
+			const payload = toBase64Url(
 				await encryptPush(utf8.encode(JSON.stringify(fitPayload(m.payload))), ua, secret)
-			)
-		}))
+			);
+			return payload.length <= MAX_SEALED ? { at: m.at, payload } : null;
+		})
 	);
-	return sealed.filter((m) => m.payload.length <= MAX_SEALED);
 }
 
 /** The PUT body for a list. */
@@ -159,18 +166,18 @@ const putBody = (endpoint: string, reminders: readonly Sealed[]) =>
  * one PUT body of at most `max` bytes, in time order. `dropped` counts what
  * was left out (the latest).
  */
-export function fitBudget(
+export function fitBudget<T extends Sealed>(
 	endpoint: string,
-	sealed: readonly Sealed[],
+	sealed: readonly T[],
 	max = MAX_UPLOAD_BYTES
-): { reminders: Sealed[]; dropped: number } {
+): { reminders: T[]; dropped: number } {
 	const sorted = [...sealed].sort((a, b) => a.at - b.at);
 	// The body is ASCII (base64url, digits, the endpoint as JSON), so its
 	// length is its size in bytes, give or take an escaped endpoint.
 	let total = utf8.encode(putBody(endpoint, [])).length;
 	let kept = 0;
 	for (const m of sorted) {
-		const add = JSON.stringify(m).length + (kept ? 1 : 0);
+		const add = JSON.stringify({ at: m.at, payload: m.payload }).length + (kept ? 1 : 0);
 		if (total + add > max) break;
 		total += add;
 		kept++;
@@ -178,11 +185,11 @@ export function fitBudget(
 	return { reminders: sorted.slice(0, kept), dropped: sorted.length - kept };
 }
 
-/** What an upload sent: how many, and the times of those left out (the cap, the size budget). */
+/** What an upload sent: how many, and which were left out (the cap, the size budget, too big). */
 export interface UploadResult {
 	sent: number;
-	/** Epoch ms of each message left out, earliest first. */
-	droppedAt: number[];
+	/** The payload id of each message left out. */
+	dropped: string[];
 }
 
 /**
@@ -222,10 +229,18 @@ export async function uploadSchedule(
 	fetchFn: Fetch = fetch
 ): Promise<UploadResult> {
 	const sorted = [...list].sort((a, b) => a.at - b.at);
-	const capped = sorted.slice(MAX_PUSH).map((m) => m.at);
-	const sealed = await sealAll(sub, sorted.slice(0, MAX_PUSH));
-	const { reminders, dropped } = fitBudget(sub.endpoint, sealed);
-	const droppedAt = [...sealed.slice(sealed.length - dropped).map((m) => m.at), ...capped];
+	const head = sorted.slice(0, MAX_PUSH);
+	const each = await sealEach(sub, head);
+	// Ids ride along to report what was left out; same-minute messages stay apart.
+	const sealed = each.flatMap((m, i) => (m ? [{ ...m, id: head[i]!.payload.id }] : []));
+	const tooBig = head.filter((_, i) => !each[i]).map((m) => m.payload.id);
+	const fit = fitBudget(sub.endpoint, sealed);
+	const reminders: Sealed[] = fit.reminders.map(({ at, payload }) => ({ at, payload }));
+	const dropped = [
+		...tooBig,
+		...sealed.slice(sealed.length - fit.dropped).map((m) => m.id),
+		...sorted.slice(MAX_PUSH).map((m) => m.payload.id)
+	];
 	let res: Response;
 	try {
 		res = await fetchFn(join(worker, '/push/reminders'), {
@@ -244,7 +259,7 @@ export async function uploadSchedule(
 			`Fasti’s server refused the notifications (${res.status}${why ? `: ${why}` : ''}).`
 		);
 	}
-	return { sent: reminders.length, droppedAt };
+	return { sent: reminders.length, dropped };
 }
 
 /** Has the worker forget this subscription's list (best effort). */

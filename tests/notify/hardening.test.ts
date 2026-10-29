@@ -13,9 +13,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { longDate } from '../../src/lib/app/format';
 import { fromBase64Url, messageKeys, toBase64Url } from '../../src/lib/notify/encrypt';
 import {
+	MISSED_GRACE_MS,
 	RENEWAL_ID,
 	RENEWAL_TITLE,
 	afterDrops,
+	catchUp,
 	findMissed,
 	planFor,
 	renewalPush,
@@ -23,6 +25,7 @@ import {
 } from '../../src/lib/notify/outgoing';
 import {
 	LATE_MS,
+	SHOWN_CACHE,
 	SHOWN_RETENTION_MS,
 	bodyToShow,
 	readPayload,
@@ -51,9 +54,11 @@ import {
 	type ScheduledNotification
 } from '../../src/lib/notify/schedule';
 import { installNotificationHandlers, type NotificationScope } from '../../src/lib/notify/sw';
+import { staleCaches } from '../../src/lib/offline/caching';
 import {
 	getPlan,
 	getPush,
+	onDatabaseReplaced,
 	openFastiDB,
 	setPlan,
 	type NotifyPlanRecord,
@@ -148,6 +153,8 @@ describe('limits', () => {
 		expect(MAX_UPLOAD_BYTES).toBeLessThan(3 * 1024 * 1024);
 		// The shown log outlasts the push schedule, for the catch-up.
 		expect(SHOWN_RETENTION_MS).toBeGreaterThan(HORIZON_MS);
+		// …and survives a new version's service worker clearing its old caches.
+		expect(staleCaches([SHOWN_CACHE, 'fasti-old'], 'fasti-new')).toEqual(['fasti-old']);
 	});
 });
 
@@ -184,14 +191,40 @@ describe('the size budget', () => {
 			async () => new Response(null, { status: 204 })
 		);
 		expect(result.sent).toBe(MAX_PUSH);
-		expect(result.droppedAt).toEqual([s.notifications[2]!.at]);
+		expect(result.dropped).toEqual([s.notifications[2]!.id]);
 		// The last notification (on DAYS[3]) was left out: covered through DAYS[2].
-		expect(afterDrops(s, plan, result.droppedAt)).toEqual({
+		expect(afterDrops(s, plan, result.dropped)).toEqual({
 			through: DAYS[2],
 			truncated: true,
 			count: 2
 		});
 		expect(afterDrops(s, plan, [])).toEqual({ through: DAYS[3], truncated: false, count: 3 });
+	});
+
+	it('drops by id, so a same-minute sibling of a dropped one is still counted as sent', async () => {
+		const { sub } = await browserSubscription();
+		// Two reminders in the same minute on the last day; the cap leaves out one.
+		const twin = note(4, DAYS[3]!, 615, { at: T0 + 3 * 3_600_000 });
+		const s = schedule({
+			notifications: [note(1, DAYS[0]!, 570), note(2, DAYS[1]!, 600), note(3, DAYS[3]!, 615), twin],
+			renewalAt: null
+		});
+		const plan = planFor(s, '12h');
+		const filler = Array.from({ length: MAX_PUSH - plan.length + 1 }, (_, i) => ({
+			at: T0 - 1000 - i,
+			payload: { id: `early-${i}`, title: 't', body: '', url: '' }
+		}));
+		const result = await uploadSchedule(
+			'https://w.example',
+			sub,
+			[...plan.map((p) => ({ at: p.at, payload: p.payload })), ...filler],
+			async () => new Response(null, { status: 204 })
+		);
+		expect(result.dropped).toHaveLength(1);
+		const summary = afterDrops(s, plan, result.dropped);
+		// One of the twins was sent: the count says so (by time, both would look dropped).
+		expect(summary.count).toBe(3);
+		expect(summary.truncated).toBe(true);
 	});
 });
 
@@ -352,6 +385,86 @@ describe('the plan kept on the device', () => {
 			throw new Error('no caches');
 		});
 		expect(broken.map((p) => p.payload.id)).toEqual([plan[0]!.payload.id]);
+	});
+});
+
+describe('a newer Fasti opening the database', () => {
+	it('closes an older connection instead of hanging, and says so', async () => {
+		const name = `fasti-blocking-${process.pid}`;
+		const v1 = await openFastiDB(name, 1);
+		const replaced = vi.fn();
+		const stop = onDatabaseReplaced(replaced);
+		const v2 = await openFastiDB(name);
+		expect(v2.version).toBe(2);
+		expect(v2.objectStoreNames.contains('notify')).toBe(true);
+		expect(replaced).toHaveBeenCalledTimes(1);
+		// The old connection is closed: using it fails rather than hanging.
+		expect(() => v1.transaction('settings')).toThrow();
+		stop();
+		v2.close();
+	});
+});
+
+describe('the catch-up', () => {
+	function deps(
+		planned: PlannedPush[],
+		checkedAt: number,
+		extra: Partial<Parameters<typeof catchUp>[0]> = {}
+	) {
+		let record: NotifyPlanRecord = { planned, savedAt: checkedAt, checkedAt };
+		const marked: string[] = [];
+		const d = {
+			getPlan: async () => record,
+			setPlan: async (r: NotifyPlanRecord) => void (record = r),
+			wasShown: async () => false,
+			markShown: async (id: string) => void marked.push(id),
+			active: true,
+			isCurrent: () => true,
+			now: T0,
+			...extra
+		};
+		return { d, marked, record: () => record };
+	}
+	const at = (id: string, t: number): PlannedPush => ({
+		at: t,
+		date: DAYS[0],
+		payload: { id, title: id, body: '', url: '' }
+	});
+
+	it('waits ten minutes before calling one missed, and marks what it lists as shown', async () => {
+		const list = [at('old', T0 - MISSED_GRACE_MS - 1), at('recent', T0 - MISSED_GRACE_MS + 1)];
+		const { d, marked, record } = deps(list, T0 - DAY);
+		const found = await catchUp(d);
+		expect(found!.map((p) => p.payload.id)).toEqual(['old']);
+		expect(marked).toEqual(['old']);
+		expect(record().checkedAt).toBe(T0 - MISSED_GRACE_MS);
+		// The recent one is looked at by the next run, once its grace has passed.
+		const later = await catchUp({ ...d, now: T0 + MISSED_GRACE_MS });
+		expect(later!.map((p) => p.payload.id)).toEqual(['recent']);
+	});
+
+	it('moves on without listing anything when notifications are off', async () => {
+		const { d, marked, record } = deps([at('old', T0 - DAY / 2)], T0 - DAY, { active: false });
+		expect(await catchUp(d)).toEqual([]);
+		expect(marked).toEqual([]);
+		expect(record().checkedAt).toBe(T0 - MISSED_GRACE_MS);
+	});
+
+	it('drops an older run’s results and write-back once a newer run started', async () => {
+		let seq = 1;
+		const { d, marked, record } = deps([at('old', T0 - DAY / 2)], T0 - DAY);
+		const mine = 1;
+		const run = catchUp({
+			...d,
+			isCurrent: () => mine === seq,
+			wasShown: async () => {
+				seq = 2; // A newer catch-up starts while this one reads the log.
+				return false;
+			}
+		});
+		expect(await run).toBeNull();
+		expect(marked).toEqual([]);
+		expect(record().checkedAt).toBe(T0 - DAY);
 	});
 });
 

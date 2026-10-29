@@ -122,7 +122,7 @@ describe('push protocol', () => {
 		expect(count).toBe(MAX_PUSH);
 		expect(result).toEqual({
 			sent: MAX_PUSH,
-			droppedAt: Array.from({ length: 6 }, (_, i) => MAX_PUSH + i)
+			dropped: Array.from({ length: 6 }, (_, i) => String(MAX_PUSH + i))
 		});
 		await expect(
 			uploadSchedule(

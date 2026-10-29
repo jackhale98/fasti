@@ -159,7 +159,7 @@ test.describe('with permission granted', () => {
 				date: '2026-10-28',
 				payload: { id, title, body: 'Today at 9:30am · reminders.rem', url: '', at, due: '9:30am' }
 			});
-			const shown = await caches.open('fasti-notifications-shown');
+			const shown = await caches.open('notify-shown');
 			await shown.put(`/shown/${encodeURIComponent('shown-1')}`, new Response(String(now)));
 			await new Promise<void>((resolve, reject) => {
 				const open = indexedDB.open('fasti');
