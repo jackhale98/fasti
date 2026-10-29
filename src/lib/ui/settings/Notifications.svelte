@@ -50,7 +50,7 @@
 							{#if n.pushConfigured && through}
 								Notifications scheduled through {longDate(through)}.
 								{#if n.push?.truncated}
-									Only the first 64 fit; Fasti adds the rest when it opens again.
+									Not everything fit; Fasti adds the rest when it opens again.
 								{/if}
 							{:else if n.pushConfigured && n.push}
 								Scheduling…
@@ -108,8 +108,9 @@
 		<ul>
 			{#if n.pushConfigured}
 				<li>
-					The schedule covers 8 days from the last time Fasti was opened on this device. Open it at
-					least once a week.
+					The schedule covers 30 days from the last time Fasti was opened on this device. If it
+					isn’t opened for a while, a notification the day before the schedule runs out asks you to
+					open it.
 				</li>
 				<li>
 					Edits made on another device, or a time zone change, take effect the next time Fasti is
@@ -118,7 +119,11 @@
 			{:else}
 				<li>Notifications are shown only while Fasti is open in a tab or window.</li>
 			{/if}
-			<li>Battery savers, Focus and Low Power Mode can delay notifications.</li>
+			<li>
+				Battery savers, Focus and Low Power Mode can delay notifications. One that arrives more than
+				5 minutes late says when it was due.
+			</li>
+			<li>Notifications missed while Fasti was closed are listed on Today when it opens.</li>
 			<li>
 				Times follow Remind: AT reminders, including their +tdelta and *trepeat warnings; NOQUEUE
 				reminders don’t notify.

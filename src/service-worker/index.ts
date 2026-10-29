@@ -2,7 +2,8 @@
 /**
  * Keeps Fasti working offline once visited: everything is precached at
  * install (#lib/offline/caching.ts decides what, and how each request is
- * answered). Push and notification clicks are handled by #lib/notify/sw.ts.
+ * answered). Push, notification clicks, push subscription changes and the
+ * periodic push check are handled by #lib/notify/sw.ts.
  * Registered by #lib/offline/pwa.svelte.ts after the page has loaded; a new
  * version waits until the person chooses "Reload". Adapted from Tessera's
  * service worker (MIT; see THIRD_PARTY_NOTICES.md).
@@ -19,8 +20,26 @@ import {
 	type Route
 } from '../lib/offline/caching.ts';
 import { installNotificationHandlers } from '../lib/notify/sw.ts';
+import { resealStored } from '../lib/notify/reseal.ts';
+import { getPlan, getPush, openFastiDB, setPush } from '../lib/store/db.ts';
 
-installNotificationHandlers(self);
+installNotificationHandlers(self, async (fresh) => {
+	// Only where push exists (feature-detected); IndexedDB is opened per event.
+	const pushManager = self.registration.pushManager;
+	if (!pushManager || typeof indexedDB === 'undefined') return;
+	const db = await openFastiDB();
+	try {
+		await resealStored({
+			pushManager,
+			fresh,
+			getRecord: () => getPush(db),
+			getPlan: () => getPlan(db),
+			saveRecord: (record) => setPush(db, record)
+		});
+	} finally {
+		db.close();
+	}
+});
 
 const name = cacheName(version);
 const plan = planCaches({

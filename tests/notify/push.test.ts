@@ -9,6 +9,7 @@ import { fromBase64Url, messageKeys, toBase64Url } from '../../src/lib/notify/en
 import {
 	HORIZON_MS,
 	MAX_PLAINTEXT,
+	MAX_PUSH,
 	deleteSchedule,
 	fitPayload,
 	pushOnOpen,
@@ -107,18 +108,22 @@ describe('push protocol', () => {
 		expect(await open(body.reminders[0]!.payload, keys, p256dh, auth)).toEqual(payload);
 	});
 
-	it('sends at most 64 and says why the worker refused', async () => {
+	it('sends at most MAX_PUSH (the earliest) and says why the worker refused', async () => {
 		const { sub } = await browserSubscription();
-		const list = Array.from({ length: 70 }, (_, i) => ({
+		const list = Array.from({ length: MAX_PUSH + 6 }, (_, i) => ({
 			at: i,
 			payload: { id: String(i), title: 't', body: '', url: '' }
 		}));
 		let count = 0;
-		await uploadSchedule('https://w.example', sub, list, async (_u, init) => {
+		const result = await uploadSchedule('https://w.example', sub, list, async (_u, init) => {
 			count = (JSON.parse(init!.body as string) as { reminders: unknown[] }).reminders.length;
 			return new Response(null, { status: 204 });
 		});
-		expect(count).toBe(64);
+		expect(count).toBe(MAX_PUSH);
+		expect(result).toEqual({
+			sent: MAX_PUSH,
+			droppedAt: Array.from({ length: 6 }, (_, i) => MAX_PUSH + i)
+		});
 		await expect(
 			uploadSchedule(
 				'https://w.example',
@@ -176,20 +181,20 @@ describe('push protocol', () => {
 		expect(await open(body!.reminders[1]!.payload, keys, p256dh, auth)).toEqual(small);
 	});
 
-	it('keeps a test message out of the real 64', () => {
-		const real = Array.from({ length: 64 }, (_, i) => ({
+	it('keeps a test message out of the real MAX_PUSH', () => {
+		const real = Array.from({ length: MAX_PUSH }, (_, i) => ({
 			at: 100 + i,
 			payload: { id: String(i), title: 't', body: '', url: '' }
 		}));
 		const test = { at: 1, payload: { id: 'test', title: 'Test', body: '', url: '' } };
 		const list = withTest(real, test);
-		expect(list).toHaveLength(64);
+		expect(list).toHaveLength(MAX_PUSH);
 		expect(list[0]).toBe(test);
-		expect(list.slice(1)).toEqual(real.slice(0, 63));
+		expect(list.slice(1)).toEqual(real.slice(0, MAX_PUSH - 1));
 		expect(withTest(real.slice(0, 3), test)).toHaveLength(4);
 	});
 
-	it('keeps an hour’s margin before the worker’s 8-day horizon (a fast device clock)', () => {
+	it('keeps an hour’s margin before the upload horizon (a fast device clock)', () => {
 		const now = 1_800_000_000_000;
 		expect(uploadHorizon(now)).toBe(now + HORIZON_MS - 3_600_000);
 	});

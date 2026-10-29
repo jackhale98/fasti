@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * Notifications while Fasti is closed: the client side of the worker's push
- * protocol. The next 8 days' notifications go to Fasti's worker, each
+ * protocol. The next 30 days' notifications go to Fasti's worker, each
  * encrypted first for this browser's push subscription (RFC 8291), so the
  * worker stores only times and sealed messages it can't read.
  *
@@ -14,20 +14,29 @@
  *   (501 when push isn't set up on the worker).
  * - `PUT  <worker>/push/reminders` with
  *   `{ "endpoint", "reminders": [{ "at": <epoch ms>, "payload": "<base64url>" }] }`
- *   replaces this subscription's list: at most 64, none more than 8 days
- *   ahead, each payload at most 4 KB.
+ *   replaces this subscription's list: at most 512, none more than 32 days
+ *   ahead, each payload at most 4 KB, the whole body at most 3 MiB.
  * - `DELETE <worker>/push/reminders` with `{ "endpoint" }` forgets it.
  *
  * The worker sends each push with `Urgency: high` and a TTL, which the
  * protocol fixes on the worker's side (the client can't set them).
+ *
+ * The service worker uses this module too (re-sealing the stored plan for a
+ * new subscription), so nothing here touches the DOM.
  */
 import { encryptPush, fromBase64Url, toBase64Url } from './encrypt.ts';
 import type { NotificationPayload } from './payload.ts';
+import { DAYS_AHEAD, MAX_NOTIFICATIONS } from './schedule.ts';
 
 type Fetch = typeof fetch;
 
-/** The worker keeps lists due within this window. */
-export const HORIZON_MS = 8 * 86_400_000;
+const DAY_MS = 86_400_000;
+/**
+ * How far ahead uploads reach: Remind's today plus DAYS_AHEAD days, i.e. at
+ * most DAYS_AHEAD + 1 days from now (31). The worker allows 32, which leaves
+ * room for a device clock that is off by up to a day.
+ */
+export const HORIZON_MS = (DAYS_AHEAD + 1) * DAY_MS;
 /**
  * Upload only what's due this long before the worker's horizon from the
  * device's clock, so a device clock that runs fast (the worker checks against
@@ -36,8 +45,13 @@ export const HORIZON_MS = 8 * 86_400_000;
 export const CLOCK_MARGIN_MS = 3_600_000;
 /** The upload's horizon, from the device's now. */
 export const uploadHorizon = (now = Date.now()) => now + HORIZON_MS - CLOCK_MARGIN_MS;
-/** The worker accepts at most this many per subscription. */
-export const MAX_PUSH = 64;
+/** The worker accepts at most this many per subscription (as many as Remind's schedule plans). */
+export const MAX_PUSH = MAX_NOTIFICATIONS;
+/**
+ * The largest request body sent (the worker takes 3 MiB): 1 KiB under, for
+ * the worker's own framing. Sealed messages past it are dropped, latest first.
+ */
+export const MAX_UPLOAD_BYTES = 3 * 1024 * 1024 - 1024;
 /**
  * The largest plaintext JSON sent. Push services take 4096-byte records
  * (RFC 8291 leaves 4079 bytes of plaintext in one) and the worker refuses a
@@ -108,15 +122,18 @@ export function fitPayload(p: NotificationPayload, max = MAX_PLAINTEXT): Notific
 	return out;
 }
 
+/** One sealed message, as the worker stores it. */
+export interface Sealed {
+	at: number;
+	payload: string;
+}
+
 /**
  * Encrypts each message for this subscription, as the worker stores them.
  * Each payload is shortened to fit first; one that still wouldn't fit is
  * left out rather than failing the whole list.
  */
-export async function sealAll(
-	sub: SubscriptionKeys,
-	list: readonly Outgoing[]
-): Promise<{ at: number; payload: string }[]> {
+export async function sealAll(sub: SubscriptionKeys, list: readonly Outgoing[]): Promise<Sealed[]> {
 	const p256dh = sub.keys?.p256dh;
 	const auth = sub.keys?.auth;
 	if (!p256dh || !auth) throw new Error('The push subscription has no encryption keys.');
@@ -131,6 +148,41 @@ export async function sealAll(
 		}))
 	);
 	return sealed.filter((m) => m.payload.length <= MAX_SEALED);
+}
+
+/** The PUT body for a list. */
+const putBody = (endpoint: string, reminders: readonly Sealed[]) =>
+	JSON.stringify({ endpoint, reminders });
+
+/**
+ * The sealed list cut to the size budget: the earliest messages that fit in
+ * one PUT body of at most `max` bytes, in time order. `dropped` counts what
+ * was left out (the latest).
+ */
+export function fitBudget(
+	endpoint: string,
+	sealed: readonly Sealed[],
+	max = MAX_UPLOAD_BYTES
+): { reminders: Sealed[]; dropped: number } {
+	const sorted = [...sealed].sort((a, b) => a.at - b.at);
+	// The body is ASCII (base64url, digits, the endpoint as JSON), so its
+	// length is its size in bytes, give or take an escaped endpoint.
+	let total = utf8.encode(putBody(endpoint, [])).length;
+	let kept = 0;
+	for (const m of sorted) {
+		const add = JSON.stringify(m).length + (kept ? 1 : 0);
+		if (total + add > max) break;
+		total += add;
+		kept++;
+	}
+	return { reminders: sorted.slice(0, kept), dropped: sorted.length - kept };
+}
+
+/** What an upload sent: how many, and the times of those left out (the cap, the size budget). */
+export interface UploadResult {
+	sent: number;
+	/** Epoch ms of each message left out, earliest first. */
+	droppedAt: number[];
 }
 
 /**
@@ -159,20 +211,27 @@ export function pushOnOpen(state: {
 	return state.enabled && state.permission === 'granted' ? 'subscribe' : 'none';
 }
 
-/** Replaces the worker's list for this subscription. Throws with a reason. */
+/**
+ * Replaces the worker's list for this subscription: at most MAX_PUSH (the
+ * earliest), within the size budget. Throws with a reason.
+ */
 export async function uploadSchedule(
 	worker: string,
 	sub: SubscriptionKeys,
 	list: readonly Outgoing[],
 	fetchFn: Fetch = fetch
-): Promise<void> {
-	const reminders = await sealAll(sub, list.slice(0, MAX_PUSH));
+): Promise<UploadResult> {
+	const sorted = [...list].sort((a, b) => a.at - b.at);
+	const capped = sorted.slice(MAX_PUSH).map((m) => m.at);
+	const sealed = await sealAll(sub, sorted.slice(0, MAX_PUSH));
+	const { reminders, dropped } = fitBudget(sub.endpoint, sealed);
+	const droppedAt = [...sealed.slice(sealed.length - dropped).map((m) => m.at), ...capped];
 	let res: Response;
 	try {
 		res = await fetchFn(join(worker, '/push/reminders'), {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ endpoint: sub.endpoint, reminders })
+			body: putBody(sub.endpoint, reminders)
 		});
 	} catch {
 		throw new Error(
@@ -185,6 +244,7 @@ export async function uploadSchedule(
 			`Fasti’s server refused the notifications (${res.status}${why ? `: ${why}` : ''}).`
 		);
 	}
+	return { sent: reminders.length, droppedAt };
 }
 
 /** Has the worker forget this subscription's list (best effort). */

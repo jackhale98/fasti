@@ -9,12 +9,16 @@
  * used in Fasti under GPL-2.0-or-later by its copyright holder's grant
  * (THIRD_PARTY_NOTICES.md). Changed: every push shows a notification, even
  * one that can't be read, because iOS revokes a subscription whose pushes
- * show nothing (docs/PLAN.md 3.6, Reliability).
+ * show nothing (docs/PLAN.md 3.6, Reliability); a push shown more than
+ * five minutes late says when it was due; and the stored plan is re-sealed
+ * when the browser changes the subscription or on a periodic check
+ * (reseal.ts).
  *
  * The scope is typed structurally: this file is compiled with the app's DOM
  * types, where ServiceWorkerGlobalScope doesn't exist.
  */
-import { firstShowing, readPayload, type NotificationPayload } from './payload.ts';
+import { bodyToShow, firstShowing, readPayload, type NotificationPayload } from './payload.ts';
+import { PUSH_CHECK_TAG } from './reseal.ts';
 
 interface WindowClientLike {
 	url: string;
@@ -23,7 +27,10 @@ interface WindowClientLike {
 }
 
 export interface NotificationScope {
-	addEventListener(type: 'push' | 'notificationclick', listener: (event: Event) => void): void;
+	addEventListener(
+		type: 'push' | 'notificationclick' | 'pushsubscriptionchange' | 'periodicsync',
+		listener: (event: Event) => void
+	): void;
 	registration: ServiceWorkerRegistration;
 	clients?: {
 		matchAll(options: {
@@ -45,6 +52,24 @@ interface NotificationEventLike extends Event {
 	notification: Notification;
 	waitUntil(promise: Promise<unknown>): void;
 }
+
+/** The parts of a PushSubscriptionChangeEvent used here. */
+interface SubscriptionChangeEventLike extends Event {
+	newSubscription?: { toJSON(): unknown } | null;
+	waitUntil(promise: Promise<unknown>): void;
+}
+
+/** The parts of a PeriodicSyncEvent used here. */
+interface PeriodicSyncEventLike extends Event {
+	tag?: string;
+	waitUntil(promise: Promise<unknown>): void;
+}
+
+/**
+ * Re-seals the stored plan (reseal.ts), with a subscription the event
+ * carries, if any. Injected so tests can run without IndexedDB.
+ */
+export type Reseal = (fresh: { toJSON(): unknown } | null) => Promise<unknown>;
 
 /** Shown when a push can't be read: still visible, as iOS requires. */
 export const FALLBACK: NotificationPayload = {
@@ -70,7 +95,11 @@ export function appUrl(scope: string, path: string): string {
 	return new URL(path.replace(/^\/+/, ''), base).href;
 }
 
-export function installNotificationHandlers(scope: NotificationScope): void {
+export function installNotificationHandlers(
+	scope: NotificationScope,
+	reseal?: Reseal,
+	now: () => number = Date.now
+): void {
 	const reg = scope.registration;
 
 	scope.addEventListener('push', (event) => {
@@ -81,7 +110,7 @@ export function installNotificationHandlers(scope: NotificationScope): void {
 				.catch(() => true)
 				.then((first) =>
 					reg.showNotification(payload.title, {
-						body: payload.body,
+						body: bodyToShow(payload, now()),
 						...(payload.id ? { tag: payload.id } : {}),
 						// Shown already by the open app: replace it quietly rather than twice.
 						silent: !first,
@@ -91,6 +120,20 @@ export function installNotificationHandlers(scope: NotificationScope): void {
 				)
 		);
 	});
+
+	if (reseal) {
+		// Best effort: a failure leaves the worker's list as it was, and the
+		// next open re-uploads.
+		scope.addEventListener('pushsubscriptionchange', (event) => {
+			const e = event as SubscriptionChangeEventLike;
+			e.waitUntil(reseal(e.newSubscription ?? null).catch(() => undefined));
+		});
+		scope.addEventListener('periodicsync', (event) => {
+			const e = event as PeriodicSyncEventLike;
+			if (e.tag !== PUSH_CHECK_TAG) return;
+			e.waitUntil(reseal(null).catch(() => undefined));
+		});
+	}
 
 	scope.addEventListener('notificationclick', (event) => {
 		const e = event as NotificationEventLike;
