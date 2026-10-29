@@ -96,6 +96,11 @@ export interface Schedule {
 	truncated: boolean;
 	/** Epoch ms of the start of tomorrow (Remind's next today), for re-planning. */
 	nextDay: number | null;
+	/**
+	 * Epoch ms (from Remind) of noon on the day before `through`: when to send
+	 * the "open Fasti to keep reminders coming" push. Null when `through` is today.
+	 */
+	renewalAt: number | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -399,6 +404,7 @@ export async function buildSchedule(
 		notifications,
 		through,
 		truncated: horizonCut === null && capped !== null,
-		nextDay
+		nextDay,
+		renewalAt: null
 	};
 }
