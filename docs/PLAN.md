@@ -427,7 +427,7 @@ Keep this section current. One line per completed item, newest last.
 - [ ] Phase 5: notifications
   - [x] Local timers while open and encrypted Web Push while closed (RFC 8291; times from Remind's agenda and its queue rules), Settings section with status, test, iOS guidance and limits. Reviewed; fixes for payload size, the through-date status, retries and clock skew merged.
   - [x] ICS download (section 3.6a); the subscription feed was dropped (owner's decision).
-  - [ ] Hardening for Android/Chrome PWAs (owner's request, 2026-10-29; native app deferred): 30-day window and 512 cap, SCHED evaluated by Remind, 3-hour TTL with late labels and retries, per-message worker storage, re-seal on subscription change and periodic sync, renewal push, missed-reminder list on open (section 3.6). In progress.
+  - [x] Hardening for Android/Chrome PWAs (owner's request, 2026-10-29; native app deferred): 30-day window and 512 cap, SCHED evaluated by Remind, 3-hour TTL with late labels and retries, per-message worker storage (40 sends per alarm run, generations, transactional replace, streamed size limit, rate limit on), re-seal on subscription change and periodic sync, renewal push, missed-reminder list on open (section 3.6). Every run now passes `-o`, so ONCE reminders aren't taken as already issued. Database version 2, with older windows giving way. Worker and device sides each reviewed twice and signed off.
   - [ ] Manual push test on Android Chrome and an installed iOS PWA (needs the worker deployed).
 - [ ] Phase 6: PWA, performance, docs, deploy
   - [x] Service worker precaching the shell and the engine (works fully offline after one visit, tested), manifest and the owner's icons, update notice.
